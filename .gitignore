@@ -1,0 +1,19 @@
+# Generated build artifacts — `npm run build` writes to ./dist/.
+# Don't commit the packaged archives; they're rebuilt from source on
+# every release.
+dist/
+*.xpi
+*.zip
+
+# Editor / OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# web-ext temp output (when run without --artifacts-dir)
+web-ext-artifacts/
+
+# npm
+node_modules/
+package-lock.json

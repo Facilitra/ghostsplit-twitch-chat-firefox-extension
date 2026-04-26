@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Static ghost icon used for the WebExtension's PNG icons (48 / 96 / 128).
+  Stripped from `assets/ghost-icon-anim.svg`: removed the @keyframes,
+  the .float / .eyelid animation classes, and the eyelid group (since
+  the resting state has eyes open). Body color set to GhostSplit accent
+  purple (#9147ff) so the icon reads as an extension brand mark.
+
+  ViewBox is 0 0 500 500 (no -18 headroom needed without the float
+  animation), giving a clean square crop for librsvg-based PNG export.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 500"
+     role="img" aria-label="GhostSplit">
+  <defs>
+    <mask id="ghostMask" maskUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="500" height="500" fill="black"/>
+      <path d="M 250.003 0.484 C 360.236 0.484 449.614 89.834 449.614 200.098 L 449.614 499.516 L 326.876 474.563 L 250.023 499.516 L 175.37 474.563 L 50.387 499.516 L 50.387 200.098 C 50.387 89.834 139.765 0.484 250.003 0.484 Z" fill="white"/>
+      <g fill="black">
+        <path d="M 187.622 250 C 208.308 250 225.049 233.232 225.049 212.573 C 225.049 191.887 208.308 175.146 187.622 175.146 C 166.965 175.146 150.196 191.887 150.196 212.573 C 150.196 233.232 166.965 250 187.622 250 Z"/>
+        <path d="M 312.381 250 C 333.067 250 349.809 233.232 349.809 212.573 C 349.809 191.887 333.067 175.146 312.381 175.146 C 291.719 175.146 274.954 191.887 274.954 212.573 C 274.954 233.232 291.719 250 312.381 250 Z"/>
+        <path d="M 318.252 356.444 A 68.252 68.252 0 1 0 181.748 356.444 A 68.252 68.252 0 1 0 318.252 356.444 Z"/>
+      </g>
+    </mask>
+  </defs>
+  <path d="M 250.003 0.484 C 360.236 0.484 449.614 89.834 449.614 200.098 L 449.614 499.516 L 326.876 474.563 L 250.023 499.516 L 175.37 474.563 L 50.387 499.516 L 50.387 200.098 C 50.387 89.834 139.765 0.484 250.003 0.484 Z"
+        fill="#9147ff" stroke="#9147ff" stroke-width="1"
+        mask="url(#ghostMask)" style="fill-rule: evenodd;"/>
+  <path d="M 269.89 349.216 C 275.22 352.369 275.22 360.525 269.89 363.672 L 237.668 382.694 C 232.487 385.758 226.112 381.772 226.112 375.466 L 226.112 337.422 C 226.112 331.122 232.487 327.137 237.668 330.194 L 269.89 349.216 Z"
+        fill="#9147ff" stroke-width="0"/>
+</svg>

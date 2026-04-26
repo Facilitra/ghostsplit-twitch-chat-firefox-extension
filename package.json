@@ -1,0 +1,34 @@
+{
+  "name": "ghostsplit-twitch-chat-firefox-extension",
+  "version": "0.1.0",
+  "description": "Firefox extension that restyles native twitch.tv chat to match the GhostSplit chat look. Replaces image badges with text pills (SUB/MOD/VIP/etc.), softens username colors, and works alongside 7TV / BetterTTV / FrankerFaceZ.",
+  "private": true,
+  "license": "MIT",
+  "author": "Facilitra",
+  "homepage": "https://github.com/Facilitra/ghostsplit-twitch-chat-firefox-extension",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Facilitra/ghostsplit-twitch-chat-firefox-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Facilitra/ghostsplit-twitch-chat-firefox-extension/issues"
+  },
+  "keywords": [
+    "twitch",
+    "chat",
+    "theme",
+    "ghostsplit",
+    "7tv",
+    "webextension",
+    "firefox",
+    "manifest-v3"
+  ],
+  "scripts": {
+    "lint": "npx --yes web-ext lint --source-dir . --ignore-files icons/generate.mjs icons/ghost-icon.svg package.json README.md LICENSE .gitignore",
+    "build": "npx --yes web-ext build --source-dir . --artifacts-dir ./dist --overwrite-dest --ignore-files icons/generate.mjs icons/ghost-icon.svg package.json README.md LICENSE .gitignore",
+    "icons": "node icons/generate.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

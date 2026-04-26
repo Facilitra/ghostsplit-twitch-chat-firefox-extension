@@ -1,0 +1,97 @@
+# =============================================================================
+# Release workflow
+# =============================================================================
+#
+# Triggers on a `v*.*.*` tag push (or manual dispatch with a chosen tag) and:
+#   1. Lints the extension via Mozilla's web-ext.
+#   2. Builds the .zip via `npm run build` (calls web-ext build).
+#   3. Duplicates the .zip as .xpi for direct Firefox sideload.
+#   4. Creates a GitHub Release with both archives attached and
+#      auto-generated release notes from commit history.
+#
+# Cut a release locally with:
+#     git tag v0.1.0
+#     git push origin v0.1.0
+#
+# Or manually from GitHub Actions → "Release" → Run workflow.
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v0.1.0). Will be created if it doesn't exist."
+        required: true
+        type: string
+
+permissions:
+  # Required by softprops/action-gh-release to create the GitHub Release
+  # and upload assets.
+  contents: write
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Show manifest version
+        run: node -e "console.log(require('./manifest.json').version)"
+
+      - name: Lint extension
+        run: npm run lint
+
+      - name: Build extension (.zip)
+        run: npm run build
+
+      # web-ext writes a single .zip. Firefox sideload accepts the same
+      # archive renamed to .xpi, so we duplicate rather than rebuild.
+      - name: Produce .xpi alongside .zip
+        id: artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP=$(ls dist/*.zip | head -n1)
+          NAME=$(basename "$ZIP" .zip)
+          XPI="dist/${NAME}.xpi"
+          cp "$ZIP" "$XPI"
+          ls -la dist/
+          {
+            echo "zip=${ZIP}"
+            echo "xpi=${XPI}"
+            echo "name=${NAME}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload build artifacts (workflow run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.artifacts.outputs.name }}
+          path: |
+            ${{ steps.artifacts.outputs.zip }}
+            ${{ steps.artifacts.outputs.xpi }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || inputs.tag }}
+          name: ${{ github.ref_name || inputs.tag }}
+          files: |
+            ${{ steps.artifacts.outputs.zip }}
+            ${{ steps.artifacts.outputs.xpi }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
