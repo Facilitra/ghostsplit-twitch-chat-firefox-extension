@@ -80,11 +80,27 @@
     // cheer / bits — alt: "cheer 100", "cheer 1000", "cheer 5000", etc.
     { match: /^cheer\s*\d+/i, cls: "gs-badge-bits", label: "BITS" },
 
-    // subscriber — must be LAST in the sub-related group; alt examples:
-    //   "Suscriptor", "Suscriptor durante 9 meses", "Suscriber",
-    //   "Subscriber", "Subscriber for 1 year". The trailing variants of
-    //   "X meses/años" are absorbed by .* at the end.
-    { match: /^(suscriptor|subscriber|sub)\b/i, cls: "gs-badge-subscriber", label: "SUB" },
+    // subscriber — must be LAST in the sub-related group. Alt and
+    // aria-label examples we've observed in the wild:
+    //   "Suscriptor", "Suscriptor durante 9 meses",
+    //   "Suscripción durante 7 mes(es) (emblema de 6 meses)" (the
+    //     unlocalized account / Spanish-default variant Twitch ships
+    //     when a user is not logged in — uses the noun "Suscripción"
+    //     instead of the agent noun "Suscriptor"),
+    //   "Subscriber", "Subscriber for 1 year",
+    //   "1-Year Subscriber", "6-Month Subscriber" (keyword NOT at the
+    //     start of the string),
+    //   "Insignia de suscriptor durante 9 meses".
+    // The keyword can appear anywhere, so we don't anchor on `^` here —
+    // `\b` on either side gives us a word match without false-positives
+    // like "subscribers". The earlier role-specific entries above
+    // (broadcaster, mod, vip, founder, staff, …) take priority because
+    // BADGE_MAP is iterated in order.
+    {
+      match: /\b(suscripci[oó]n|suscriptor|subscriber|sub)\b/i,
+      cls: "gs-badge-subscriber",
+      label: "SUB",
+    },
   ];
 
   // ---- 2. core: convert one image → pill (or drop) --------------------------
@@ -259,6 +275,253 @@
   }
 
   /**
+   * Native channel-points redeem rows ship as:
+   *
+   *   <wrapper>                             (the parent of user-notice-line)
+   *     <div style="--color-border-quote">  (the colored left rail — sibling)
+   *     <div data-test-selector=user-notice-line>
+   *       <div>                             (header section)
+   *         <div .channel-points-reward-line>
+   *           "Canjeado: Hablame con voz"   (text node)
+   *           <div .channel-points-reward-line__icon>
+   *           "5000"                        (text node)
+   *       <div>                             (message section)
+   *         <div .chat-line__message>       (the user's actual chat msg)
+   *
+   * 7TV ships the same data as a totally different shape:
+   *
+   *   <span .seventv-reward-message-container.seventv-highlight>
+   *     <div .reward-part>
+   *       <div .reward-left>
+   *         <span .reward-username>RetroDannyCR</span> redeemed
+   *         <span .reward-name bold>Hablame con voz</span>
+   *       </div>
+   *       <span .reward-cost bold><svg/><span>5000</span></span>
+   *     </div>
+   *     <div .message-part>
+   *       <span .seventv-user-message>...</span>
+   *     </div>
+   *   </span>
+   *
+   * To use ONE set of CSS rules for both renderers, this function
+   * rewrites the native DOM into the 7TV shape: it adds the
+   * seventv-reward-message-container + seventv-highlight classes to the
+   * outer wrapper, replaces the header line content with a .reward-part
+   * subtree, and tags the message section with .message-part. After
+   * this pass, every existing .chat-shell .seventv-reward-* rule
+   * applies to the native row too, so we can delete the parallel
+   * .gs-reward-* CSS family entirely.
+   *
+   * Idempotent via data-gs-redeem on the header line.
+   *
+   * @param {Element} row
+   */
+  function processNativeRedeem(row) {
+    const wrapper = row.closest('[data-test-selector="user-notice-line"]');
+    if (!wrapper) return;
+    const iconHolder = wrapper.querySelector(".channel-points-reward-line__icon");
+    if (!iconHolder) return;
+
+    const headerLine = /** @type {HTMLElement} */ (iconHolder.parentElement);
+    if (!headerLine || headerLine.dataset.gsRedeem === "1") return;
+    headerLine.dataset.gsRedeem = "1";
+
+    // Read the [pre-text, icon, post-text] tuple from the header line.
+    /** @type {Text | null} */ let preTextNode = null;
+    /** @type {Text | null} */ let postTextNode = null;
+    let seenIcon = false;
+    for (const node of Array.from(headerLine.childNodes)) {
+      if (node === iconHolder) {
+        seenIcon = true;
+        continue;
+      }
+      if (node.nodeType !== Node.TEXT_NODE) continue;
+      if (!seenIcon) preTextNode = /** @type {Text} */ (node);
+      else postTextNode = /** @type {Text} */ (node);
+    }
+
+    // Split the leading prefix at the first ":" (Spanish: "Canjeado:
+    // <name>") or at the first space (English: "Redeemed <name>"). The
+    // prefix becomes inline body text, the name becomes the chip.
+    const raw = (preTextNode?.nodeValue || "").trim();
+    const colonIdx = raw.indexOf(":");
+    const splitAt = colonIdx >= 0 ? colonIdx + 1 : raw.indexOf(" ");
+    const prefixText = splitAt > 0 ? raw.slice(0, splitAt) : raw;
+    const nameText = splitAt > 0 ? raw.slice(splitAt).trim() : "";
+    const costText = (postTextNode?.nodeValue || "").trim();
+
+    // Build the redeem-part subtree using OUR namespace (`gs-*`). The
+    // CSS pairs these selectors with the equivalent 7TV ones so a
+    // single rule set styles both renderers — without us pretending to
+    // BE 7TV by stamping `.seventv-*` classes on synthesized DOM.
+    const rewardPart = document.createElement("div");
+    rewardPart.className = "gs-redeem-part";
+
+    const rewardLeft = document.createElement("div");
+    rewardLeft.className = "gs-redeem-left";
+    if (prefixText) {
+      // Trailing space so "Canjeado: " sits visually apart from the
+      // chip. The 7TV original is " redeemed " with whitespace either
+      // side — we mirror that.
+      rewardLeft.appendChild(document.createTextNode(prefixText + " "));
+    }
+    if (nameText) {
+      const nameSpan = document.createElement("span");
+      nameSpan.className = "gs-redeem-name";
+      nameSpan.textContent = nameText;
+      rewardLeft.appendChild(nameSpan);
+    }
+    rewardPart.appendChild(rewardLeft);
+
+    if (costText) {
+      const rewardCost = document.createElement("span");
+      rewardCost.className = "gs-redeem-cost";
+      // Move the original icon holder into the cost span — the icon
+      // <img> stays intact (Twitch CDN), only its parent changes. The
+      // existing CSS sizes the img via .channel-points-reward-line__icon.
+      rewardCost.appendChild(iconHolder);
+      const costNum = document.createElement("span");
+      costNum.textContent = costText;
+      rewardCost.appendChild(costNum);
+      rewardPart.appendChild(rewardCost);
+    }
+
+    // Replace the header line's contents with the rebuilt subtree.
+    while (headerLine.firstChild) headerLine.removeChild(headerLine.firstChild);
+    headerLine.appendChild(rewardPart);
+
+    // Tag the OUTER wrapper as a redeem card. Pairs with the 7TV
+    // .seventv-reward-message-container.seventv-highlight selector in
+    // CSS via comma-grouped rules.
+    const cardWrapper = wrapper.parentElement;
+    if (cardWrapper && !cardWrapper.classList.contains("gs-redeem-card")) {
+      cardWrapper.classList.add("gs-redeem-card");
+    }
+
+    // Tag the user-message section (the direct child of the
+    // user-notice-line that contains the actual chat-line__message) so
+    // CSS can reset its row chrome.
+    for (const child of Array.from(wrapper.children)) {
+      if (child.querySelector(":scope .chat-line__message")) {
+        child.classList.add("gs-redeem-message");
+        break;
+      }
+    }
+  }
+
+  /**
+   * Star SVG for the GhostSplit-style sub notice. The original
+   * GhostSplit chat client loads /assets/icons/star.svg, but a content
+   * script can't fetch site-relative assets without a
+   * web_accessible_resources declaration, so we inline the path. Class
+   * is added on the imported element rather than via the source string
+   * to keep DOMParser as the only entry point (no innerHTML).
+   */
+  const STAR_SVG = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+         aria-hidden="true" focusable="false">
+      <path d="M12 2 L14.85 8.6 L22 9.3 L16.5 14 L18.1 21 L12 17.3 L5.9 21 L7.5 14 L2 9.3 L9.15 8.6 Z"/>
+    </svg>
+  `;
+
+  /**
+   * @returns {SVGElement | null}
+   */
+  function buildStarIcon() {
+    const svgDoc = new DOMParser().parseFromString(STAR_SVG, "image/svg+xml");
+    const svg = svgDoc.documentElement;
+    if (!svg || svg.nodeName.toLowerCase() !== "svg") return null;
+    const imported = /** @type {SVGElement} */ (document.importNode(svg, true));
+    imported.setAttribute("class", "gs-notice-icon");
+    return imported;
+  }
+
+  /**
+   * Native sub / resub / Prime / gift notices land inside a
+   * user-notice-line wrapper with a chunky multi-element layout
+   * (icon column + paragraph with chatter-name + emphasized spans +
+   * Prime link). The original GhostSplit chat client renders the
+   * equivalent as a flat single-line notice:
+   *
+   *   <div class="chat-message notice chat-message-system chat-message-system-sub">
+   *     <span class="chat-notice-wrap">
+   *       <img class="chat-notice-icon" src=".../star.svg" />
+   *       <span class="chat-notice-text">{flattened text}</span>
+   *     </span>
+   *   </div>
+   *
+   * That's what this function builds — a star icon plus the
+   * paragraph's textContent, on one line, in the blue notice card.
+   * We use `gs-notice-*` class names instead of GhostSplit's
+   * `chat-notice-*` to avoid colliding with anything Twitch ships.
+   *
+   * Detection: inside a user-notice-line, NOT a channel-points redeem
+   * (no .channel-points-reward-line__icon), and the text content
+   * matches a sub/gift keyword in either Spanish or English.
+   *
+   * @param {Element} row
+   */
+  function processNativeSubNotice(row) {
+    const wrapper = row.closest('[data-test-selector="user-notice-line"]');
+    if (!wrapper) return;
+    if (wrapper.dataset.gsSubNotice === "1") return;
+    if (wrapper.querySelector(".channel-points-reward-line__icon")) return;
+
+    const text = wrapper.textContent || "";
+    if (!/\b(subscrib|suscrit|suscripci|gifted|regalad)/i.test(text)) return;
+
+    wrapper.dataset.gsSubNotice = "1";
+
+    const paragraph = wrapper.querySelector("p");
+    if (!paragraph) return;
+
+    // Flatten the paragraph's mixed content (chatter-name span +
+    // emphasized spans + Prime link + text nodes) into a single
+    // whitespace-collapsed string. That's what the GhostSplit notice
+    // shows.
+    const noticeText = (paragraph.textContent || "").trim().replace(/\s+/g, " ");
+    if (!noticeText) return;
+
+    const wrap = document.createElement("span");
+    wrap.className = "gs-notice-wrap";
+
+    const icon = buildStarIcon();
+    if (icon) wrap.appendChild(icon);
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "gs-notice-text";
+    textSpan.textContent = noticeText;
+    wrap.appendChild(textSpan);
+
+    // Replace the user-notice-line content with our flat notice.
+    while (wrapper.firstChild) wrapper.removeChild(wrapper.firstChild);
+    wrapper.appendChild(wrap);
+
+    // Tag the outer wrapper so the notice-card CSS picks it up. We
+    // also add `gs-notice-card-sub` for sub-specific palette overrides.
+    const cardWrapper = wrapper.parentElement;
+    if (cardWrapper) {
+      cardWrapper.classList.add("gs-notice-card", "gs-notice-card-sub");
+    }
+  }
+
+  /**
+   * Sub / watch-streak / raid notice rows do NOT contain a
+   * .chat-line__message, so processRow never reaches them. Scan the
+   * document for user-notice-line wrappers directly and run the
+   * notice-specific transformers. Idempotent (each transformer guards
+   * with its own data-* marker).
+   */
+  function processNativeNotices() {
+    document
+      .querySelectorAll('[data-test-selector="user-notice-line"]')
+      .forEach((wrapper) => {
+        processNativeRedeem(wrapper);
+        processNativeSubNotice(wrapper);
+      });
+  }
+
+  /**
    * Process all badges + soften usernames inside one message row.
    * Idempotent.
    * @param {Element} row
@@ -278,6 +541,10 @@
 
     // Usernames
     softenUsernames(row);
+
+    // Native channel-points redeem header — wrap reward name + cost so
+    // the chip CSS can target them.
+    processNativeRedeem(row);
   }
 
   /**
@@ -289,6 +556,7 @@
       '[data-a-target="chat-line-message"], .seventv-message'
     );
     rows.forEach(processRow);
+    processNativeNotices();
   }
 
   // ---- 3. observe new messages ---------------------------------------------
@@ -304,6 +572,7 @@
     // #seventv-message-container. Subtree + childList is enough; we don't
     // need attribute mutations for badges.
     observer = new MutationObserver((mutations) => {
+      let sawNoticeCandidate = false;
       for (const m of mutations) {
         m.addedNodes.forEach((node) => {
           if (!(node instanceof Element)) return;
@@ -314,6 +583,7 @@
             )
           ) {
             processRow(node);
+            sawNoticeCandidate = true;
             return;
           }
           // Otherwise: search inside it.
@@ -324,8 +594,18 @@
               )
               .forEach(processRow);
           }
+          // Sub / watch-streak / raid notices have no chat-line__message
+          // so they don't trigger the row branches above. Mark for a
+          // notice sweep at the end of this batch.
+          if (
+            node.matches?.('[data-test-selector="user-notice-line"]') ||
+            node.querySelector?.('[data-test-selector="user-notice-line"]')
+          ) {
+            sawNoticeCandidate = true;
+          }
         });
       }
+      if (sawNoticeCandidate) processNativeNotices();
     });
 
     observer.observe(document.body, { childList: true, subtree: true });

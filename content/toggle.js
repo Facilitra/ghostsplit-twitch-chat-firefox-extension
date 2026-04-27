@@ -8,10 +8,12 @@
    (7TV in particular) and added complexity. The icon is now purely a
    visual reminder that the theme is active.
 
-   Positioning: always inserted as the LAST child of the nav container
-   so it stays visually after every other nav item. Re-positioned on
-   any DOM mutation that pushes another item past us (e.g. 7TV mounting
-   its button after ours on SPA navigation).
+   Positioning: docked immediately after the whisper-box-button's nav
+   wrapper when logged in, or after the prime-offers-icon wrapper when
+   logged out (whisper button isn't rendered for guests). Re-positioned
+   on any DOM mutation that pushes another item past us (e.g. 7TV
+   mounting its button after ours on SPA navigation, or the user
+   logging in and the whisper button appearing).
    ============================================================================ */
 
 (() => {
@@ -20,40 +22,82 @@
   const BUTTON_ID = "gs-toggle-button";
 
   /**
-   * Find the whisper-box-button's outer nav wrapper — the element that
-   * sits at the same level as `#seventv-settings-button`. Walking up
-   * from the button until we find an ancestor whose parent contains
-   * the 7TV button as a sibling gives us the right level even though
-   * Twitch's class names are CSS-in-JS hashes that change between
-   * builds.
+   * Anchors we'll dock the indicator against, in priority order. When
+   * logged in, the whisper-box-button is always present; when logged
+   * out it's absent, but the prime-offers-icon (the crown in the nav)
+   * is rendered for guests and lands at the same nav-item depth, so
+   * it's the natural fallback.
    *
-   * Fallback (no 7TV installed): walk up a fixed 4 levels from the
-   * whisper button — empirically that lands on the same nav-item
-   * wrapper depth as the rest of the nav.
-   *
-   * @returns {Element | null} the whisper button's nav-item wrapper
+   * Selectors are intentionally string-typed because Twitch uses
+   * `data-a-target` for the whisper button but plain `data-target` for
+   * the prime crown — both real, both shipping in current Twitch
+   * markup.
    */
-  function findWhisperWrapper() {
-    const whisper = document.querySelector(
-      '[data-a-target="whisper-box-button"]'
-    );
-    if (!whisper) return null;
+  const ANCHOR_SELECTORS = [
+    '[data-a-target="whisper-box-button"]',
+    '[data-target="prime-offers-icon"]',
+  ];
 
-    let el = whisper;
+  /**
+   * Find the nav-item wrapper to dock against.
+   *
+   * Pass A (7TV present) — walk up from the anchor until the parent
+   * also contains `#seventv-settings-button` as a sibling. That level
+   * matches the rest of the nav-item wrappers regardless of Twitch's
+   * CSS-in-JS hashed class names.
+   *
+   * Pass B (no 7TV) — walk up from the anchor's enclosing <button>
+   * until we hit a parent that is a horizontal flex row with multiple
+   * children. That's the top-nav item row.
+   *
+   * The prime-offers-icon fallback (logged-out state) sits at a
+   * different DOM depth than the whisper-box-button, so a hardcoded
+   * level count gets one of them wrong — when we overshoot, the
+   * indicator ends up as a sibling of the entire nav row inside a
+   * column layout, which renders the ghost icon BELOW the prime crown
+   * instead of next to it. Detecting the row by layout (flex-direction
+   * !== column AND parent has siblings) self-corrects per anchor.
+   *
+   * @returns {Element | null} the anchor's nav-item wrapper, or null
+   *   if neither anchor is mounted yet.
+   */
+  function findAnchorWrapper() {
+    let anchor = null;
+    for (const sel of ANCHOR_SELECTORS) {
+      anchor = document.querySelector(sel);
+      if (anchor) break;
+    }
+    if (!anchor) return null;
+
+    // Pass A — 7TV docking point.
+    let el = anchor;
     while (el.parentElement) {
       if (
         el.parentElement.querySelector(":scope > #seventv-settings-button")
       ) {
-        return el; // el is sibling of #seventv-settings-button
+        return el;
       }
       el = el.parentElement;
       if (el === document.body) break;
     }
 
-    // 7TV not present — fall back to fixed depth.
-    el = whisper;
-    for (let i = 0; i < 4 && el.parentElement; i++) {
-      el = el.parentElement;
+    // Pass B — climb to the natural nav-item row. Start from the
+    // enclosing <button> when the anchor is an inner SVG (the prime
+    // crown case), so we don't get stranded inside the button next to
+    // its notification badge.
+    el = anchor.closest("button") || anchor;
+    while (el.parentElement && el.parentElement !== document.body) {
+      const parent = el.parentElement;
+      const cs = getComputedStyle(parent);
+      const display = cs.display;
+      const direction = cs.flexDirection || "row";
+      const isHorizontalRow =
+        (display === "flex" || display === "inline-flex") &&
+        !direction.startsWith("column");
+      if (isHorizontalRow && parent.children.length >= 2) {
+        return el;
+      }
+      el = parent;
     }
     return el;
   }
@@ -168,27 +212,27 @@
   }
 
   /**
-   * Ensure the indicator exists AND sits immediately after the
-   * whisper-box-button's nav wrapper. Putting it ANYWHERE else (e.g.
-   * appending to the end of the nav) shifts 7TV's settings button out
-   * of its expected slot, so we anchor specifically to the whisper
-   * neighbor.
+   * Ensure the indicator exists AND sits immediately after its anchor
+   * wrapper (whisper-box-button when logged in, prime-offers-icon when
+   * logged out). Putting it ANYWHERE else (e.g. appending to the end
+   * of the nav) shifts 7TV's settings button out of its expected slot,
+   * so we anchor specifically to one of those neighbors.
    */
   function ensurePinned() {
-    const whisperWrapper = findWhisperWrapper();
-    if (!whisperWrapper || !whisperWrapper.parentNode) return;
+    const anchorWrapper = findAnchorWrapper();
+    if (!anchorWrapper || !anchorWrapper.parentNode) return;
 
     let el = document.getElementById(BUTTON_ID);
     if (!el) el = buildEl();
 
-    // Insert AFTER the whisper wrapper (so order becomes
-    // [whisper] → [GS] → [7TV settings] → […]). If we're already in
+    // Insert AFTER the anchor wrapper (so order becomes
+    // [anchor] → [GS] → [7TV settings] → […]). If we're already in
     // that exact slot, do nothing.
     if (
-      el.parentNode !== whisperWrapper.parentNode ||
-      el.previousElementSibling !== whisperWrapper
+      el.parentNode !== anchorWrapper.parentNode ||
+      el.previousElementSibling !== anchorWrapper
     ) {
-      whisperWrapper.parentNode.insertBefore(el, whisperWrapper.nextSibling);
+      anchorWrapper.parentNode.insertBefore(el, anchorWrapper.nextSibling);
     }
   }
 

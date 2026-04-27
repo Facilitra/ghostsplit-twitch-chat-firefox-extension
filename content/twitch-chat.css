@@ -354,15 +354,25 @@
   vertical-align: baseline;
 }
 
-/* Username (Twitch puts the per-user color in inline style — keep it) */
+/* Username (Twitch puts the per-user color in inline style — keep it).
+   The 7TV-rendered .seventv-chat-user-username already gets a hover
+   background from 7TV's own CSS; native chat doesn't, so we add an
+   equivalent one here for parity. Padding + negative margin keeps the
+   row layout the same width on hover. */
 .chat-shell .chat-author__display-name {
   font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
-  transition: text-decoration var(--gs-dur) var(--gs-ease);
+  border-radius: var(--gs-radius-sm);
+  padding: 0 3px;
+  margin: 0 -3px;
+  transition:
+    background-color var(--gs-dur) var(--gs-ease),
+    text-decoration  var(--gs-dur) var(--gs-ease);
 }
 .chat-shell .chat-author__display-name:hover {
   text-decoration: underline;
+  background-color: var(--gs-accent-light-v2);
 }
 
 /* Persistent softened color — survives 7TV / Twitch re-renders that
@@ -411,10 +421,13 @@
   text-decoration: underline;
 }
 
-/* Hover action icons (reply, etc.) */
+/* Hover action icons (reply, etc.). Twitch ships the reply SVG at
+   24×24 inside a same-sized button — visually overpowering vs. the
+   7TV equivalent, which renders at ~14px. Shrink both the icon and
+   the button hit-area so the chrome is consistent across renderers. */
 .chat-shell .chat-line__icons {
   position: absolute;
-  top: 4px;
+  top: -2px;
   right: 6px;
   opacity: 0;
   transition: opacity var(--gs-dur) var(--gs-ease);
@@ -422,6 +435,46 @@
 .chat-shell .chat-line__message:hover .chat-line__icons,
 .chat-shell .chat-line__message:focus-within .chat-line__icons {
   opacity: 1;
+}
+/* The button is also a flex container around the SVG; its default
+   ScCoreButton padding nudges the SVG off-center inside the shrunken
+   hit-area. Force flex-center + 0 padding so the SVG sits exactly
+   centered, and use a fully-rounded border-radius (matches Twitch's
+   own .ScButtonIcon, which uses var(--border-radius-rounded)) so the
+   hover background fills the circle edge-to-edge. */
+.chat-shell .chat-line__icons button {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  transition: background-color 120ms ease;
+}
+.chat-shell .chat-line__icons button:hover,
+.chat-shell .chat-line__icons button:focus-visible {
+  background-color: var(--color-background-button-text-hover, var(--gs-accent-light-v2)) !important;
+}
+/* The intermediate flex wrappers Twitch puts between the button and
+   the SVG (ButtonIconFigure, ScSvgWrapper) also have their own
+   sizing. Collapse them to fit-content so they don't constrain the
+   button's flex centering. */
+.chat-shell .chat-line__icons button > div,
+.chat-shell .chat-line__icons button > div > div {
+  width: auto !important;
+  height: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.chat-shell .chat-line__icons svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: block;
 }
 
 /* System / welcome line */
@@ -557,17 +610,41 @@
   max-height: var(--gs-emote-max-h-big) !important;
 }
 
-/* Hover action buttons (copy / reply) */
+/* Hover action buttons (copy / reply). 7TV ships these as bare
+   .seventv-button <div>s with no shape or hover state; mirror the
+   native chrome (circular, fills with hover background) so both
+   renderers match. */
 .chat-shell .seventv-chat-message-buttons {
   position: absolute;
   top: 2px;
   right: 4px;
   opacity: 0;
+  display: inline-flex;
+  gap: 2px;
   transition: opacity var(--gs-dur) var(--gs-ease);
 }
 .chat-shell .seventv-chat-message-background:hover .seventv-chat-message-buttons,
 .chat-shell .seventv-chat-message-background:focus-within .seventv-chat-message-buttons {
   opacity: 1;
+}
+.chat-shell .seventv-chat-message-buttons .seventv-button {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.chat-shell .seventv-chat-message-buttons .seventv-button:hover {
+  background-color: var(--color-background-button-text-hover, var(--gs-accent-light-v2));
+}
+.chat-shell .seventv-chat-message-buttons .seventv-button svg {
+  width: 14px;
+  height: 14px;
+  display: block;
 }
 
 /* Inline reply preview */
@@ -600,13 +677,24 @@
    4. SPECIAL ROWS — channel-points redeems, milestones, system notices
    ============================================================================ */
 
-/* ---------- 7TV channel-points redeem row -----------------------------------
-   The container is a <span> that 7TV already styles with its own data-v
-   attribute selectors, so we need !important on the layout properties to
-   beat them. Layout: block container wrapping a header sentence
-   (.reward-part: "<user> redeemed <name> [cost]") + body (.message-part:
-   the user's actual chat message), both inside one red-tinted card. */
-.chat-shell .seventv-reward-message-container.seventv-highlight {
+/* ---------- Channel-points redeem row ---------------------------------------
+   Two source DOMs end up here, styled by ONE rule set via comma-paired
+   selectors:
+
+     7TV  → .seventv-reward-message-container.seventv-highlight
+            (rendered by the 7TV browser extension)
+     ours → .gs-redeem-card
+            (synthesized by content/badges.js processNativeRedeem from
+             the native Twitch user-notice-line markup)
+
+   Inner part / left / name / cost / message follow the same pairing
+   pattern (seventv-vs-gs). We keep .reward-name etc. as a fallback for
+   any 7TV class hashes that change in future builds.
+
+   !important is needed on layout because 7TV ships its own data-v
+   attribute selectors with higher specificity. */
+.chat-shell .seventv-reward-message-container.seventv-highlight,
+.chat-shell .gs-redeem-card {
   display: block !important;
   margin: var(--gs-row-margin) 4px !important;
   padding: 8px 12px !important;
@@ -617,12 +705,13 @@
   box-shadow: 0 0 0 1px rgba(255, 90, 90, 0.18);
   box-sizing: border-box;
   width: auto !important;
-  overflow: hidden;          /* clip 7TV's child overflows that break corners */
+  overflow: hidden;
 }
 
-/* Reset the inner message-part so 7TV's per-component padding doesn't add
+/* Reset the inner message wrapper so per-component padding doesn't add
    a second card or push the body out of the parent border. */
-.chat-shell .seventv-reward-message-container .message-part {
+.chat-shell .seventv-reward-message-container .message-part,
+.chat-shell .gs-redeem-card .gs-redeem-message {
   display: block !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -630,9 +719,11 @@
   border: 0 !important;
 }
 
-/* The .seventv-user-message inside a reward container does NOT carry
+/* The 7TV inner .seventv-user-message doesn't carry
    .seventv-chat-message-background, so our normal row chrome doesn't
-   apply. Reset it to flow naturally inside the red card. */
+   apply. Reset it to flow naturally inside the red card. The native
+   equivalent (.chat-line__message inside .gs-redeem-message) is reset
+   by the rule near the user-notice-line block above. */
 .chat-shell .seventv-reward-message-container .message-part .seventv-user-message {
   display: block !important;
   margin: 0 !important;
@@ -641,31 +732,33 @@
   border: 0 !important;
   min-height: 0 !important;
 }
-/* Header sentence: "<username> redeemed <reward-name> [cost]" all flowing
-   inline as one wrapped paragraph. The previous flex+inline-flex+wrap
-   combo was making the bare text node "redeemed" become its own flex
-   item that wrapped to a new line in narrow chat panels. */
-.chat-shell .seventv-reward-message-container .reward-part {
+
+/* Header sentence flows inline as one wrapped paragraph. */
+.chat-shell .seventv-reward-message-container .reward-part,
+.chat-shell .gs-redeem-card .gs-redeem-part {
   display: block;
   font-size: var(--gs-text-md);
   color: var(--gs-text);
   margin-bottom: 4px;
   line-height: var(--gs-leading);
 }
-.chat-shell .seventv-reward-message-container .reward-left {
+.chat-shell .seventv-reward-message-container .reward-left,
+.chat-shell .gs-redeem-card .gs-redeem-left {
   display: inline;
 }
 
-/* Hide the redundant username at the start of the reward header — the
-   real username is shown below in the message body anyway. */
+/* 7TV puts the chatter-name at the front of the reward header — hide
+   it because the user's actual chat message already names them below.
+   Our native synthesis doesn't include the username, so no equivalent
+   rule is needed for .gs-redeem-*. */
 .chat-shell .seventv-reward-message-container .reward-username {
   display: none !important;
 }
 
-/* Capitalize the first visible letter of the reward header, so after
-   hiding the username we read "Redeemed Hablame con voz" instead of
-   the lowercase "redeemed …". `::first-letter` walks past leading
-   whitespace and the now-hidden username, and targets the "r". */
+/* Capitalize the first visible letter of the 7TV header — after the
+   username is hidden, the next visible word is lowercase "redeemed",
+   which reads better as "Redeemed". The native variant ships
+   "Canjeado: " already capitalized, so it skips this rule. */
 .chat-shell .seventv-reward-message-container .reward-part::first-letter {
   text-transform: uppercase;
 }
@@ -673,22 +766,23 @@
   font-weight: 800;
   color: #ffb3b3;
 }
-.chat-shell .reward-name {
+
+/* Reward NAME chip — same chip on both renderers. */
+.chat-shell .reward-name,
+.chat-shell .gs-redeem-name {
   display: inline-block;
   font-weight: 700;
-  font-size: 0.85em;        /* shrunk per request — slightly smaller than the
-                                surrounding "Redeemed …" text */
+  font-size: 0.85em;
   padding: 1px 8px;
   border-radius: var(--gs-radius-sm);
   background: rgba(255, 90, 90, 0.22);
-  vertical-align: middle;   /* middle-align so the smaller chip text doesn't
-                                sit visually below the surrounding "redeemed" */
+  color: var(--gs-text);
+  vertical-align: middle;
 }
-/* Cost: stripped pill chrome — render as muted inline text with the
-   channel-points icon. When the chat panel is narrow and the cost
-   wraps to its own line, it now reads as a quiet metadata note rather
-   than an orphaned chip. */
-.chat-shell .reward-cost {
+
+/* Cost block: icon + cost number, single inline-flex unit. */
+.chat-shell .reward-cost,
+.chat-shell .gs-redeem-cost {
   display: inline-flex;
   align-items: center;
   gap: 3px;
@@ -701,11 +795,12 @@
   font-size: 0.85em;
   font-weight: 600;
   white-space: nowrap;
-  vertical-align: middle;     /* sit at the visual middle of the line, same
-                                  as .reward-name, so all three header
-                                  elements (text + chip + cost) align */
+  vertical-align: middle;
 }
-.chat-shell .reward-cost svg {
+/* 7TV ships an inline SVG inside .reward-cost; native ships an <img>
+   inside .channel-points-reward-line__icon. Style both. */
+.chat-shell .reward-cost svg,
+.chat-shell .gs-redeem-cost svg {
   width: 0.9em;
   height: 0.9em;
   opacity: 0.75;
@@ -745,13 +840,30 @@
   font-weight: 800;
 }
 
-/* ---------- Native Twitch sub / resub / raid / announce notices -------------
-   Twitch wraps these in `.user-notice-line` (sometimes inside
-   `.chat-line__usernotice`). They're separate from regular chat lines and
-   need their own treatment so they don't blend in as a tiny grey row. */
+/* ---------- Native Twitch sub / resub / raid / announce / watch-streak notices
+   ----------------------------------------------------------------------------
+   Older Twitch builds shipped these as elements with the literal class
+   `user-notice-line`. Current builds emit a flex-row wrapper:
+
+     <div ...>                                <!-- the wrapper we want as card -->
+       <div style="background: var(--color-border-quote);"></div>   <!-- left rail -->
+       <div data-test-selector="user-notice-line">                  <!-- content -->
+         <svg/> <chatter-name/> <text/>
+       </div>
+     </div>
+
+   The visible class on the wrapper is a CSS-in-JS hash (changes on every
+   build) so we anchor via the data-test-selector and use :has() to walk
+   one level up to the wrapper. Then we hide the native left rail since
+   we draw our own border-left.
+
+   We catch BOTH old (.user-notice-line as a class) and new
+   ([data-test-selector="user-notice-line"]) DOMs so the rule survives
+   future Twitch refactors that flip back. */
 .chat-shell .user-notice-line,
 .chat-shell .chat-line__usernotice,
-.chat-shell .chat-line__usernotice-line {
+.chat-shell .chat-line__usernotice-line,
+.chat-shell *:has(> [data-test-selector="user-notice-line"]) {
   display: block;
   margin: var(--gs-row-margin) 4px !important;
   padding: 8px 12px !important;
@@ -764,9 +876,142 @@
   position: relative;
 }
 
+/* Hide Twitch's native colored left rail — it sits as a sibling of the
+   user-notice-line content and would otherwise push the content right
+   while showing a redundant bar against our own border-left. */
+.chat-shell *:has(> [data-test-selector="user-notice-line"])
+  > div[style*="--color-border-quote"] {
+  display: none !important;
+}
+
 .chat-shell .user-notice-line *,
-.chat-shell .chat-line__usernotice * {
+.chat-shell .chat-line__usernotice *,
+.chat-shell [data-test-selector="user-notice-line"] * {
   font-size: inherit;
+}
+
+/* The chat-line__message embedded inside a user-notice-line (sub
+   notice or redeem) shouldn't carry its own card chrome — it flows
+   inside the parent notice card. The redeem-vs-sub palette switch is
+   handled by the .gs-redeem-card / .gs-notice-card-sub classes added
+   in JS, not by :has() detection here. */
+.chat-shell [data-test-selector="user-notice-line"] .chat-line__message {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  min-height: 0 !important;
+}
+
+/* AGGRESSIVE RESET — flatten every intermediate wrapper inside the
+   redeem card so the only visual frame is the card itself.
+   ----------------------------------------------------------------
+   7TV ships data-v-* hashed wrappers around .reward-part /
+   .message-part / .seventv-user-message that contribute padding,
+   border-radius, and (in some 7TV builds) hover backgrounds. Native
+   Twitch ships a stack of CSS-in-JS hashed Layout-sc-* divs inside
+   user-notice-line that contribute flex direction and gaps. Strip
+   all of it so both renderers collapse to:
+
+     .{seventv-reward-message-container | gs-redeem-card}
+       .{reward-part | gs-redeem-part}        ← header line
+       .{message-part | gs-redeem-message}    ← user message line
+
+   with no other visual contribution from anything in between. */
+.chat-shell .seventv-reward-message-container.seventv-highlight > *,
+.chat-shell .seventv-reward-message-container.seventv-highlight > * > *,
+.chat-shell .gs-redeem-card [data-test-selector="user-notice-line"],
+.chat-shell .gs-redeem-card [data-test-selector="user-notice-line"] > div,
+.chat-shell .gs-redeem-card [data-test-selector="user-notice-line"] > div > div {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+  flex: initial !important;
+}
+
+/* The .reward-part / .gs-redeem-part itself MUST keep its
+   margin-bottom — that single rule above with margin: 0 is targeting
+   wrappers, not these named blocks. Re-state the gap explicitly so
+   both renderers space the header and the user message identically. */
+.chat-shell .seventv-reward-message-container .reward-part,
+.chat-shell .gs-redeem-card .gs-redeem-part {
+  margin-bottom: 4px !important;
+}
+
+/* The reward icon wrapper is `.channel-points-reward-line__icon`. Cap
+   its size and align it with the surrounding text so it sits next to
+   the cost number instead of stretching the row. */
+.chat-shell .channel-points-reward-line__icon {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+.chat-shell .channel-points-reward-line__icon img {
+  height: 16px !important;
+  width: auto !important;
+  vertical-align: middle;
+}
+
+/* The native redeem header line gets rebuilt into the 7TV
+   .reward-part / .reward-left / .reward-name / .reward-cost subtree by
+   content/badges.js (processNativeRedeem), so all the redeem-header
+   styling now lives in the existing .seventv-reward-message-container
+   block above — no parallel .gs-reward-* family is needed. The
+   data-gs-redeem marker on the original header div is kept as an
+   idempotency guard for the JS pass; it doesn't carry styling. */
+
+/* The cost icon container is moved inside the cost span by the JS
+   rewrite. Its existing horizontal margin would compound with the
+   cost-span gap, so cancel it when nested. */
+.chat-shell .reward-cost .channel-points-reward-line__icon,
+.chat-shell .gs-redeem-cost .channel-points-reward-line__icon {
+  margin: 0 !important;
+}
+
+/* GhostSplit-style notice card — produced by content/badges.js
+   (processNativeSubNotice). Mirrors the original GhostSplit chat
+   client's .chat-message-system-sub renderer: single line, star icon
+   on the left, light-blue text in a blue-tinted card. The outer
+   wrapper picks up `.gs-notice-card` from the JS pass; the inner
+   `<span class="gs-notice-wrap">` holds the icon + text. */
+.chat-shell .gs-notice-card-sub {
+  display: block !important;
+  margin: var(--gs-row-margin) 4px !important;
+  padding: 8px 12px !important;
+  border: 1px solid rgba(90, 170, 255, 0.55) !important;
+  border-left: 4px solid rgba(90, 170, 255, 0.7) !important;
+  background: rgba(90, 170, 255, 0.12) !important;
+  border-radius: var(--gs-radius) !important;
+  box-shadow: 0 0 0 1px rgba(90, 170, 255, 0.18);
+  color: #b8d4ff;
+}
+.chat-shell .gs-notice-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.chat-shell .gs-notice-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  fill: #b8d4ff;
+  margin-top: 2px;       /* nudge so the star aligns with the text x-height */
+}
+.chat-shell .gs-notice-text {
+  font-size: var(--gs-text-md);
+  color: #b8d4ff;
+  line-height: var(--gs-leading);
+  word-break: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* Variant: gift-sub notice (Twitch surfaces "gifted" in the text — match by
@@ -809,15 +1054,23 @@
 }
 
 /* ---------- Native Twitch INLINE REPLY QUOTE --------------------------------
-   When a user replies in native chat (no 7TV), Twitch wraps the reply
-   header inside the row using one of these selectors. Mirror the 7TV
-   .seventv-reply-part treatment so reply quotes look identical between
-   the two renderers. */
-.chat-shell .chat-line__message [data-test-selector="reply-thread-line__reply-text"],
-.chat-shell .chat-line__message .chat-line__reply,
-.chat-shell .chat-line__message .chat-line__reply-text,
-.chat-shell .chat-line__message [aria-label*="reply" i],
-.chat-shell .chat-line__message [aria-label*="responder" i] {
+   When a user replies in native chat (no 7TV), the row's aria-label
+   starts with "Reply to" (en) or "Respuesta a" (es), and the message
+   container splits into two children:
+
+     <div class="...chat-line__message-container">
+       <div>...reply preview (svg + p[title]=original message)...</div>
+       <div>...actual message (chat-line__no-background)...</div>
+     </div>
+
+   Neither child has a stable class, but the FIRST child of the
+   container is always the reply preview when the row is a reply.
+   Gating on the row's aria-label means non-reply rows (where the first
+   child is empty) are unaffected. */
+.chat-shell .chat-line__message[aria-label^="Reply to" i]
+  .chat-line__message-container > div:first-child,
+.chat-shell .chat-line__message[aria-label^="Respuesta a" i]
+  .chat-line__message-container > div:first-child {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -831,16 +1084,81 @@
   opacity: 0.9;
 }
 
-/* ---------- Native Twitch CHANNEL-POINTS REDEEM (when 7TV off) --------------
-   Without 7TV's restructure, Twitch surfaces channel-points redeems via a
-   .user-notice-line variant or a dedicated .chat-line__message-…-rewards
-   wrapper. Override the generic blue notice tint with the same red
-   redeem treatment we use for the 7TV path. */
+/* The preview's inner paragraph carries the original message in its
+   title and as inline text. Truncate to one line so a long quoted
+   message doesn't blow up the row height. */
+.chat-shell .chat-line__message[aria-label^="Reply to" i]
+  .chat-line__message-container > div:first-child p,
+.chat-shell .chat-line__message[aria-label^="Respuesta a" i]
+  .chat-line__message-container > div:first-child p {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--gs-text-sm);
+}
+
+/* The text wrapper between the flex container and the <p> defaults to
+   `min-width: auto` (its content's intrinsic size), which keeps it from
+   ever shrinking below the full reply text — so the ellipsis on the
+   <p> never engages. Forcing `min-width: 0` on the wrapper allows the
+   flex parent to shrink it, which in turn lets the <p>'s overflow
+   actually clip. Same fix is needed on the inline spans the <p>
+   contains (the Twitch markup is `Respuesta a <span>@user</span>:
+   <span>original message</span>`) — without `min-width: 0` on those
+   spans some Chromium builds still refuse to clip mid-span. */
+.chat-shell .chat-line__message[aria-label^="Reply to" i]
+  .chat-line__message-container > div:first-child > div:not(.tw-svg),
+.chat-shell .chat-line__message[aria-label^="Respuesta a" i]
+  .chat-line__message-container > div:first-child > div:not(.tw-svg) {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.chat-shell .chat-line__message[aria-label^="Reply to" i]
+  .chat-line__message-container > div:first-child p > span,
+.chat-shell .chat-line__message[aria-label^="Respuesta a" i]
+  .chat-line__message-container > div:first-child p > span {
+  min-width: 0;
+}
+
+/* Reply icon SVG — keep it small, vertically centered, muted. */
+.chat-shell .chat-line__message[aria-label^="Reply to" i]
+  .chat-line__message-container > div:first-child .tw-svg svg,
+.chat-shell .chat-line__message[aria-label^="Respuesta a" i]
+  .chat-line__message-container > div:first-child .tw-svg svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+}
+
+/* Older selectors kept for forward-compat with builds that bring back
+   class-based reply hooks. */
+.chat-shell .chat-line__message [data-test-selector="reply-thread-line__reply-text"],
+.chat-shell .chat-line__message .chat-line__reply,
+.chat-shell .chat-line__message .chat-line__reply-text {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 8px;
+  padding: 2px 0 2px 8px;
+  border-left: 3px solid var(--gs-accent-bright-v2);
+  background: var(--gs-accent-light-v2);
+  border-radius: var(--gs-radius-sm);
+  font-size: var(--gs-text-sm);
+  color: var(--gs-muted);
+  opacity: 0.9;
+}
+
+/* ---------- Native Twitch CHANNEL-POINTS REDEEM (legacy fallbacks) ----------
+   The current native path is handled above (the `:has(>
+   [data-test-selector="user-notice-line"]:has(.channel-points-reward-line__icon))`
+   rule). These class-based selectors stay as a fallback for older
+   Twitch builds that surface redeems on a different wrapper. */
 .chat-shell .chat-line__message--reward-payment,
 .chat-shell .chat-line__message--rewarded,
 .chat-shell .chat-line__message[data-rewarded],
-.chat-shell .user-notice-line:has([class*="reward"]),
-.chat-shell .user-notice-line:has([class*="canjeó" i]),
 .chat-shell .channel-points-reward-line {
   display: block !important;
   margin: var(--gs-row-margin) 4px !important;
