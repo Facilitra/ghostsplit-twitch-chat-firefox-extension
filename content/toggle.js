@@ -14,6 +14,11 @@
    on any DOM mutation that pushes another item past us (e.g. 7TV
    mounting its button after ours on SPA navigation, or the user
    logging in and the whisper button appearing).
+
+   Scope: only runs on `twitch.tv` and `www.twitch.tv`. Subdomains
+   (dashboard, safety, m, etc.) are matched by the manifest pattern but
+   don't carry the standard top nav we anchor against, so the script
+   bails out at the top of the IIFE on those hosts.
    ============================================================================ */
 
 (() => {
@@ -243,9 +248,17 @@
     }
   }
 
+  /** @type {MutationObserver | null} */
+  let pinObserver = null;
+
   function init() {
     ensurePinned();
-    new MutationObserver(() => ensurePinned()).observe(document.body, {
+    // Saved to module-scope handle + idempotency guard so a second init()
+    // (defensive — only fires once today) wouldn't accumulate observers
+    // on document.body with subtree:true (which fires on every chat row).
+    if (pinObserver) return;
+    pinObserver = new MutationObserver(() => ensurePinned());
+    pinObserver.observe(document.body, {
       childList: true,
       subtree: true,
     });

@@ -57,15 +57,24 @@
    (styles/_variables.scss + styles/components/_chat.scss) so the visual
    look matches: purple accent palette, 6 px radius, 0.12 alpha hover
    tint, mention purple #c9a6ff, reward red tint, reply quote with purple
-   left-border. Twitch badges are kept as small images (parity with the
-   text-pill look — "SUB", "VIP" — would need a content script to read
-   the badge `alt` attribute and synthesize chips; tracked in section 6).
+   left-border. Twitch badges are replaced with text pills by content/badges.js
+   (the `gs-badge-*` family), styled in section 4 below.
+
+   Light-theme support is provided via a final block keyed on
+   `:is(.tw-root--theme-light, .gs-light) .chat-shell`. It re-declares
+   the design tokens at light-theme values so all earlier rules cascade
+   automatically for both renderer DOMs, plus an explicit !important
+   text-color block on text-bearing leaf nodes (Twitch's leaf rules win
+   specificity over our row-level color inheritance). The `.gs-light`
+   class is toggled on `<html>` by content/badges.js (see isLightTheme /
+   syncThemeFlag).
 
    ============================================================================ */
 
 
 /* =============================================================================
-   1. TOKENS — copied from styles/_variables.scss (dark theme)
+   1. TOKENS — dark-theme defaults (copied from styles/_variables.scss).
+   Light-theme overrides are declared in section 4 of this file.
    ============================================================================ */
 
 .chat-shell {
@@ -584,6 +593,26 @@
   border-color: var(--gs-accent-glow);
 }
 
+/* 7TV-rendered highlight rows. The inner `.seventv-user-message.has-highlight`
+   already ships inline `border: none; background: none;` (7TV strips its own
+   chrome from highlighted rows), and exposes the per-channel highlight tone
+   as `--seventv-highlight-color`. CSS custom properties cascade only to
+   descendants, so the parent row can't read that variable — we paint our
+   own GhostSplit highlight at the parent level instead, matching how the
+   native `.chat-line__message:has(.chat-line__message-highlight)` rule above
+   handles the native chat highlight. */
+.chat-shell .seventv-user-message.has-highlight {
+  border: none !important;
+  background: none !important;
+}
+.chat-shell .seventv-chat-message-background:has(.seventv-user-message.has-highlight) {
+  background: var(--gs-highlight-bg) !important;
+  border-color: var(--gs-highlight-bd);
+  box-shadow:
+    0 0 12px rgba(167, 139, 250, 0.30),
+    inset 0 0 12px rgba(167, 139, 250, 0.12);
+}
+
 /* User row: badges + username inline-flex, never wraps. `baseline`
    alignment keeps the username text on the same line as the colon and
    message body, even when a badge is taller than the text. */
@@ -830,10 +859,6 @@
 .chat-shell .seventv-reward-message-container .reward-part::first-letter {
   text-transform: uppercase;
 }
-.chat-shell .reward-username {
-  font-weight: 800;
-  color: #ffb3b3;
-}
 
 /* Reward NAME chip — same chip on both renderers. */
 .chat-shell .reward-name,
@@ -934,7 +959,7 @@
 .chat-shell *:has(> [data-test-selector="user-notice-line"]) {
   display: block;
   margin: var(--gs-row-margin) 4px !important;
-  padding: 8px 12px !important;
+  padding: 8px 2px !important;
   border: 1px solid rgba(90, 170, 255, 0.55);
   border-left: 4px solid rgba(90, 170, 255, 0.7);
   background: rgba(90, 170, 255, 0.12);
@@ -1637,13 +1662,11 @@
 
 
 /* =============================================================================
-   6. TODO — JS-pass enhancements (require a content script)
+   6. FUTURE WORK — JS-pass enhancements (require a content script)
    ============================================================================
-   These need DOM mutation, not CSS; tracked here for the next iteration:
+   These need DOM mutation, not CSS; tracked here as future iterations.
+   Text-pill badge synthesis is already implemented in content/badges.js.
 
-   - Synthesize text-pill badges ("SUB", "VIP", "MOD", "FOUNDER") from each
-     badge img's alt text (Spanish "Suscriptor durante…", "VIP", "Moderador"
-     etc.) so badges look like the GhostSplit chip rendering.
    - Inject the GhostSplit badge for users connected via /api/ghostsplit
      (requires CORS allowlist for moz-extension://… origins on the
      GhostSplit server).

@@ -24,9 +24,9 @@
     "manifest-v3"
   ],
   "scripts": {
-    "lint": "npx --yes web-ext lint --source-dir . --ignore-files icons/generate.mjs icons/ghost-icon.svg package.json README.md LICENSE .gitignore",
-    "build": "npx --yes web-ext build --source-dir . --artifacts-dir ./dist --overwrite-dest --ignore-files icons/generate.mjs icons/ghost-icon.svg package.json README.md LICENSE .gitignore",
-    "icons": "node icons/generate.mjs"
+    "lint": "npx --yes web-ext lint --source-dir . --ignore-files \"dist\" \"dist/**\" \".github\" \".github/**\" package.json README.md CHANGELOG.md LICENSE .gitignore",
+    "build": "npx --yes web-ext build --source-dir . --artifacts-dir ./dist --overwrite-dest --ignore-files \"dist\" \"dist/**\" \".github\" \".github/**\" package.json README.md CHANGELOG.md LICENSE .gitignore",
+    "icons": "node ../generate-icons.mjs ./icons"
   },
   "engines": {
     "node": ">=18"

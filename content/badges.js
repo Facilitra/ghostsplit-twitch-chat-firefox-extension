@@ -22,6 +22,18 @@
              GhostSplit's compact pill-only look).
      3. Use a MutationObserver scoped to the chat root, and mark each message
         with `data-gs-pills` so we never reprocess one.
+     4. Soften per-user neon username colors via the GhostSplit
+        `softenChatColor` algorithm (function `soften` below). The softened
+        value is stored in a `--gs-color` CSS variable so it survives the
+        framework's later inline-style re-renders.
+     5. Rewrite native sub / resub / gift notice rows into the GhostSplit
+        flat notice card (function `processNativeSubNotice`).
+     6. Detect light theme (Twitch's `tw-root--theme-light` class first,
+        body-background luminance fallback) and toggle `.gs-light` on
+        <html>. The CSS light-theme override block is keyed on
+        `:is(.tw-root--theme-light, .gs-light) .chat-shell`, so the JS
+        detection hands the CSS a class it can rely on regardless of
+        what Twitch renames their own theme class to.
 
    Structural classes added:
      .gs-badge                              base pill
@@ -189,14 +201,18 @@
 
   /**
    * Soften a Twitch username color the same way GhostSplit's
-   * src/utils/colorHelpers.ts → softenChatColor() does (dark theme branch
-   * only — Twitch chat is always dark in our extension's scope).
+   * src/utils/colorHelpers.ts → softenChatColor() does.
    *
    * - Mix the input color toward a light base rgb(220,220,235) at weight
    *   0.78 (i.e. 0.65 × 1.2, the dark-mode coefficient from the source).
    * - If the result's perceived luminance (Rec. 601) exceeds 0.8, re-mix
    *   the original color toward a darker base rgb(80,80,100) at 0.8 so
    *   neon-bright names don't read as white-on-white.
+   *
+   * The output is tuned for a dark chat surface. On light theme the CSS
+   * override block redirects `--gs-color` to a high-contrast slate so this
+   * function's output isn't applied — see the `[data-gs-color]` rule under
+   * `:is(.tw-root--theme-light, .gs-light) .chat-shell`.
    *
    * @param {{r:number,g:number,b:number}} c
    * @returns {string} `rgb(r, g, b)`
@@ -683,16 +699,26 @@
     document.documentElement.classList.toggle("gs-light", isLightTheme());
   }
 
+  /** @type {MutationObserver | null} */
+  let themeObserverHtml = null;
+  /** @type {MutationObserver | null} */
+  let themeObserverBody = null;
+
   function startThemeObserver() {
     // Twitch flips the theme class on <html> or a wrapper div. We can't
     // know which without guessing, so observe both <html> and <body>
-    // attribute mutations and re-evaluate on any class change.
+    // attribute mutations and re-evaluate on any class change. Saved to
+    // module-scope handles + idempotency guard so a second boot() call
+    // (or future explicit teardown) doesn't accumulate observers.
+    if (themeObserverHtml || themeObserverBody) return;
     const onAttr = () => syncThemeFlag();
-    new MutationObserver(onAttr).observe(document.documentElement, {
+    themeObserverHtml = new MutationObserver(onAttr);
+    themeObserverHtml.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
     });
-    new MutationObserver(onAttr).observe(document.body, {
+    themeObserverBody = new MutationObserver(onAttr);
+    themeObserverBody.observe(document.body, {
       attributes: true,
       attributeFilter: ["class"],
     });

@@ -76,20 +76,21 @@ Submission to [addons.mozilla.org](https://addons.mozilla.org/) pending.
 .
 ├── manifest.json                  Manifest V3 declaration
 ├── content/
-│   ├── twitch-chat.css            All visual rules, scoped to .chat-shell
-│   ├── badges.js                  Image badge → text pill swap
-│   │                              + username color softening
+│   ├── twitch-chat.css            All visual rules, scoped to .chat-shell;
+│   │                              dark + light theme overrides
+│   ├── badges.js                  Image badge → text pill swap, username
+│   │                              color softening, theme detection
 │   └── toggle.js                  Top-nav "loaded" indicator
 ├── icons/
-│   ├── ghost-icon.svg             Source SVG for PNG icons
-│   ├── icon-{48,96,128}.png       Generated icons (referenced by manifest)
-│   └── generate.mjs               Icon regeneration script (sharp)
+│   └── icon-{48,96,128}.png       Generated icons (referenced by manifest)
 ├── README.md
 └── LICENSE
 ```
 
-`icons/generate.mjs` and `icons/ghost-icon.svg` are dev-time only and are
-excluded from the published `.zip` / `.xpi` by the build script.
+Icon generation is shared between the Chromium and Firefox repos via a
+single `generate-icons.mjs` script kept one level up (sibling of both
+repo folders) alongside `ghost-icon.svg`. Run `npm run icons` from this
+repo to regenerate the PNGs into `./icons/`.
 
 ### Inter-script protocol
 
@@ -116,15 +117,15 @@ npm run build    # produce ./dist/<name>-<version>.zip
 npm run icons    # (re)generate icons/icon-{48,96,128}.png from the SVG
 ```
 
-The build excludes `icons/generate.mjs`, `icons/ghost-icon.svg`,
-`package.json`, `README.md`, `LICENSE`, and `.gitignore` from the
-package — only the actual extension files (`manifest.json`,
-`content/*`, `icons/*.png`) ship to users.
+The build excludes `package.json`, `README.md`, `LICENSE`, `.gitignore`,
+`dist/`, and `.github/` from the package — only the actual extension
+files (`manifest.json`, `content/*`, `icons/*.png`) ship to users.
 
 `npm run icons` requires `sharp`. Install it once with
 `npm install sharp --no-save` (it's intentionally not declared in
 `package.json` because it's only needed when re-rasterizing the icon).
-Re-run only when `icons/ghost-icon.svg` changes.
+Re-run only when `../ghost-icon.svg` (the shared SVG source one level up)
+changes.
 
 ---
 

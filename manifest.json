@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GhostSplit.gg Chat Theme for Twitch.tv",
   "version": "0.1.2",
-  "description": "Restyles native twitch.tv chat to match the GhostSplit chat look. Bits and channel-points UI are preserved.",
+  "description": "Restyles native twitch.tv chat to match the GhostSplit chat look — dark and light themes supported. Bits and channel-points UI preserved.",
   "browser_specific_settings": {
     "gecko": {
       "id": "ghostsplit-chat-theme@ghostsplit",
