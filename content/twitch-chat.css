@@ -181,6 +181,14 @@
   color: var(--color-fill-button-icon-hover);
 }
 
+/* Light-theme idle: white-on-white is invisible. Drop to a mid gray that
+   matches the rest of the (greyed) icons in Twitch's light-theme top nav.
+   The :hover rule above still uses Twitch's tokens, so the hover color
+   continues to match the rest of the nav in both themes. */
+:is(.tw-root--theme-light, .gs-light) #gs-toggle-button > button {
+  color: rgb(14, 14, 16);
+}
+
 /* The inlined ghost SVG: render at the button's full content box so
    the float animation has room to breathe (the SVG viewBox has 18px
    of vertical headroom for the float). */
@@ -366,13 +374,32 @@
   border-radius: var(--gs-radius-sm);
   padding: 0 3px;
   margin: 0 -3px;
+  /* Keep the username on a single inline run — Twitch's light theme ships
+     `role="button"` defaults on the parent `.chat-line__username` that can
+     break the trailing character to a new line. nowrap on the leaf span
+     makes the whole name wrap as a unit (or not at all). */
+  white-space: nowrap;
   transition:
     background-color var(--gs-dur) var(--gs-ease),
     text-decoration  var(--gs-dur) var(--gs-ease);
 }
 .chat-shell .chat-author__display-name:hover {
   text-decoration: underline;
-  background-color: var(--gs-accent-light-v2);
+}
+
+/* The parent `.chat-line__username` is `<span role="button">`, so on light
+   theme Twitch's stylesheet treats it like an interactive control: visible
+   underline / focus ring / background tint applied at idle, not just on
+   hover. Strip those so the username + pills read as a name, not a button.
+   Hover state on `.chat-author__display-name` above still triggers the
+   GhostSplit purple wash + underline as expected. */
+.chat-shell .chat-line__username,
+.chat-shell .chat-line__username > span,
+.chat-shell .chat-line__username-container--hoverable {
+  background: transparent !important;
+  text-decoration: none !important;
+  box-shadow: none !important;
+  white-space: nowrap;
 }
 
 /* Persistent softened color — survives 7TV / Twitch re-renders that
@@ -985,13 +1012,23 @@
 .chat-shell .gs-notice-card-sub {
   display: block !important;
   margin: var(--gs-row-margin) 4px !important;
-  padding: 8px 12px !important;
+  padding: 8px var(--gs-row-pad-x) !important;
   border: 1px solid rgba(90, 170, 255, 0.55) !important;
   border-left: 4px solid rgba(90, 170, 255, 0.7) !important;
   background: rgba(90, 170, 255, 0.12) !important;
   border-radius: var(--gs-radius) !important;
   box-shadow: 0 0 0 1px rgba(90, 170, 255, 0.18);
   color: #b8d4ff;
+}
+
+/* Inner `[data-test-selector="user-notice-line"]` ships Twitch's hashed
+   layout class (e.g. `.cglxbn`) which sets `padding-inline: 1.6rem 16px`
+   and `padding-block: 4px` with !important. The hashed name changes per
+   build, but the JS pass marks this element with `data-gs-sub-notice="1"`,
+   so we override at that stable hook and zero the inner padding — the
+   outer `.gs-notice-card-sub` wrapper already provides the card padding. */
+.chat-shell [data-gs-sub-notice="1"] {
+  padding: 0 !important;
 }
 .chat-shell .gs-notice-wrap {
   display: flex;
@@ -1307,6 +1344,188 @@
   background: var(--gs-bits-bg);
   border-color: var(--gs-bits-bd);
   color: #7dd3fc;
+}
+
+/* =============================================================================
+   LIGHT THEME OVERRIDES
+   ----------------------------------------------------------------------------
+   Activated by `html.tw-root--theme-light` (Twitch's own light-mode flag).
+   Strategy: re-declare the design tokens ON `.chat-shell` itself. Every
+   visual rule above resolves token names at use-time, so flipping the token
+   values here automatically re-themes both renderer DOMs (native
+   `.chat-line__message` AND 7TV's `.seventv-message`) — no per-rule
+   duplication needed. The only places we still need explicit overrides are
+   (a) literal rgba colors that don't go through tokens (the .gs-badge-*
+   pills), and (b) the JS-driven username soften (which writes a CSS var
+   onto each username node and applies it via !important).
+   ============================================================================ */
+
+:is(.tw-root--theme-light, .gs-light) .chat-shell {
+  /* Surfaces — pull toward warm whites so we read as a card on Twitch's
+     own light surface (#f7f7f8) without going stark white-on-white. */
+  --gs-bg:           #ffffff;
+  --gs-panel:        #f7f7f8;
+  --gs-panel-2:      #ececef;
+  --gs-border:       #d9d9de;
+  --gs-border2:      #c4c4cb;
+
+  /* Text — flip to dark. Slightly off-black so we don't compete with
+     usernames on contrast. */
+  --gs-text:         #18181b;
+  --gs-muted:        #45454d;
+  --gs-muted2:       #6b6b75;
+
+  /* Row tint — a 4 % black wash instead of dark theme's 2 % white wash,
+     so the per-row card affordance survives on a near-white background. */
+  --gs-row-bg:       rgba(0, 0, 0, 0.04);
+
+  /* Mentions / links — Twitch's own light-theme accents (their purple
+     light-mode primary, their light-mode link blue) so we don't fight the
+     surrounding UI. */
+  --gs-mention:      #772ce8;
+  --gs-link:         #1f69ff;
+
+  /* Reward / bits / highlight tints — same hue as dark theme but lower
+     alpha because alpha against white reads stronger than against black. */
+  --gs-reward-bg:    rgba(220, 38, 38, 0.10);
+  --gs-reward-bd:    rgba(220, 38, 38, 0.55);
+  --gs-bits-bg:      rgba(2, 132, 199, 0.10);
+  --gs-bits-bd:      rgba(2, 132, 199, 0.60);
+  --gs-highlight-bg: rgba(119, 44, 232, 0.12);
+  --gs-highlight-bd: rgba(119, 44, 232, 0.55);
+
+  /* Accent variants used for hover wash + focus glow. Same purple, flipped
+     alphas for the new background polarity. */
+  --gs-accent-light-v2:  rgba(119, 44, 232, 0.08);
+  --gs-accent-light-v3:  rgba(119, 44, 232, 0.12);
+  --gs-accent-glow:      rgba(119, 44, 232, 0.30);
+  --gs-accent-bright-v2: rgba(119, 44, 232, 0.45);
+  --gs-accent-bright-v3: rgba(119, 44, 232, 0.55);
+}
+
+/* Force dark text on the actual text-bearing elements in BOTH renderer
+   DOMs. Setting `color` on the row container alone isn't enough on light
+   theme: Twitch's own stylesheet ships rules at the `.text-fragment` /
+   `.text-token` level (and 7TV does the same on `.seventv-chat-message-body`)
+   that can win specificity over our row-level `color: var(--gs-text)`.
+   `!important` at element level ensures we own the text color regardless of
+   which framework re-renders the row. */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .chat-line__message,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .chat-line__message .text-fragment,
+:is(.tw-root--theme-light, .gs-light) .chat-shell [data-a-target="chat-line-message-body"],
+:is(.tw-root--theme-light, .gs-light) .chat-shell [data-a-target="chat-message-text"],
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-message,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-user-message,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-chat-message-body,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-chat-message-body .text-token {
+  color: #18181b !important;
+}
+
+/* Timestamps stay muted but readable on white. */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .chat-line__timestamp,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-chat-timestamp {
+  color: #6b6b75 !important;
+}
+
+/* Username softening override. badges.js mixes Twitch usernames toward a
+   LIGHT base (rgb(220,220,235)) so they read on dark backgrounds — exactly
+   the wrong direction for light theme. We can't restore Twitch's inline
+   color from CSS (it isn't !important; our existing override beats it).
+   So on light theme we redirect the CSS var the JS set, swapping it for a
+   high-contrast dark slate. Usernames lose their per-user hue on light
+   theme, but they become readable. (A future pass could re-soften toward a
+   dark base in JS to keep per-user hue.) */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .chat-author__display-name[data-gs-color="1"],
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-chat-user[data-gs-color="1"] {
+  --gs-color: #18181b;
+}
+
+/* Pill recolors — pills bypass the token system (literal rgba per role).
+   Same hue as dark theme but used as the FILL at high alpha with white
+   text on top, so each pill reads as a solid colored chip against the
+   light surface. `.gs-badge-streamer` is special-cased — its dark-theme
+   white-on-dark treatment has no light-theme equivalent, so it gets a
+   neutral dark slate fill. */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge {
+  background: #2c2c34;
+  border-color: #2c2c34;
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-broadcaster {
+  background: rgba(220, 38, 38, 0.92);
+  border-color: rgba(185, 28, 28, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-streamer {
+  background: rgba(40, 40, 50, 0.92);
+  border-color: rgba(40, 40, 50, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-moderator {
+  background: rgba(5, 150, 105, 0.92);
+  border-color: rgba(4, 120, 87, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-vip {
+  background: rgba(124, 58, 237, 0.92);
+  border-color: rgba(109, 40, 217, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-subscriber {
+  background: rgba(124, 58, 237, 0.92);
+  border-color: rgba(109, 40, 217, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-founder {
+  background: rgba(202, 138, 4, 0.92);
+  border-color: rgba(161, 98, 7, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-staff {
+  background: rgba(37, 99, 235, 0.92);
+  border-color: rgba(29, 78, 216, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-admin {
+  background: rgba(234, 88, 12, 0.92);
+  border-color: rgba(194, 65, 12, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-global_mod {
+  background: rgba(8, 145, 178, 0.92);
+  border-color: rgba(14, 116, 144, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-turbo {
+  background: rgba(147, 51, 234, 0.92);
+  border-color: rgba(126, 34, 206, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-premium {
+  background: rgba(2, 132, 199, 0.92);
+  border-color: rgba(3, 105, 161, 1);
+  color: #fff;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-badge-bits {
+  background: rgba(2, 132, 199, 0.92);
+  border-color: rgba(3, 105, 161, 1);
+  color: #fff;
+}
+
+/* Sub / resub / raid notice card — text and star icon are tinted #b8d4ff
+   for legibility on the dark-theme blue tint. On a light surface the same
+   pale blue disappears, so we darken to a saturated navy that still reads
+   "blue notice" while staying high-contrast against the now-near-white
+   card background. The strong tag (the username inside the notice text)
+   gets the same treatment. */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card-sub,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-text,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .user-notice-line strong,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .chat-line__usernotice strong {
+  color: #1d4ed8 !important;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-icon {
+  fill: #1d4ed8;
 }
 
 

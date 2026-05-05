@@ -19,6 +19,13 @@
 (() => {
   "use strict";
 
+  // Only run on the main twitch.tv host. Subdomains like dashboard.twitch.tv,
+  // safety.twitch.tv, etc. are matched by the manifest's `*://*.twitch.tv/*`
+  // pattern but don't carry the standard top nav we anchor against, so the
+  // ghost would either fail to mount or land in the wrong slot.
+  const host = window.location.hostname;
+  if (host !== "twitch.tv" && host !== "www.twitch.tv") return;
+
   const BUTTON_ID = "gs-toggle-button";
 
   /**

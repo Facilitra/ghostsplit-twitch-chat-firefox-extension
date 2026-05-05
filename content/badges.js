@@ -653,7 +653,54 @@
   window.addEventListener("gs-reset", reset);
   window.addEventListener("gs-rescan", scanAll);
 
+  // ---- 5. theme detection --------------------------------------------------
+  //
+  // Drives the `.gs-light` class on <html>, which all light-theme CSS
+  // overrides are conditioned on. We do NOT depend on Twitch's own
+  // `tw-root--theme-light` class as a CSS selector — Twitch shuffles class
+  // names between redesigns, and a missed selector silently no-ops the
+  // entire light-theme block. Instead we detect here and own the class.
+  //
+  // Detection order:
+  //   1. Twitch's own theme class anywhere in the doc (works when present).
+  //   2. Computed body background luminance (works regardless of class name).
+
+  function isLightTheme() {
+    if (document.querySelector(".tw-root--theme-light")) return true;
+    if (document.querySelector(".tw-root--theme-dark")) return false;
+    // Fallback: the chat panel inherits its surface from <body>. If body
+    // bg parses to a light color (perceived luminance > 0.55 on Rec. 601),
+    // we're on light theme.
+    const bg = getComputedStyle(document.body).backgroundColor || "";
+    const m = bg.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (!m) return false;
+    const r = +m[1], g = +m[2], b = +m[3];
+    const lum = (r * 299 + g * 587 + b * 114) / 1000 / 255;
+    return lum > 0.55;
+  }
+
+  function syncThemeFlag() {
+    document.documentElement.classList.toggle("gs-light", isLightTheme());
+  }
+
+  function startThemeObserver() {
+    // Twitch flips the theme class on <html> or a wrapper div. We can't
+    // know which without guessing, so observe both <html> and <body>
+    // attribute mutations and re-evaluate on any class change.
+    const onAttr = () => syncThemeFlag();
+    new MutationObserver(onAttr).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    new MutationObserver(onAttr).observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+  }
+
   function boot() {
+    syncThemeFlag();
+    startThemeObserver();
     scanAll();
     startObserving();
   }
