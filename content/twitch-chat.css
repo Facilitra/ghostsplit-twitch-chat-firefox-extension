@@ -327,6 +327,22 @@
   display: none; /* hide the overlay — the row itself carries the highlight now */
 }
 
+/* Cheer-effect rows: Twitch wraps `.chat-line__message` inside a
+   `.cheer-effect-inner` ancestor that already paints its own halo +
+   animated body decoration around the message. Our own row card chrome
+   (background tint, hover wash, accent border, transition) doubles up
+   on top of that and reads as visual noise. Defer to Twitch's effect:
+   drop our backgrounds, borders and transition on the inner message so
+   only the wrapper's effect shows. */
+.chat-shell .cheer-effect-inner .chat-line__message {
+  background: none;
+  transition: none;
+}
+.chat-shell .cheer-effect-inner .chat-line__message:hover {
+  background-color: transparent;
+  border-color: transparent;
+}
+
 /* Timestamp — sized to its content (no reserved slot). When Twitch / 7TV
    chat settings hide the time, the element is either absent or empty;
    in both cases there should be NO leading gap before the username. */
@@ -372,8 +388,8 @@
   letter-spacing: 0.01em;
   cursor: pointer;
   border-radius: var(--gs-radius-sm);
-  padding: 0 3px;
-  margin: 0 -3px;
+  padding: 0 5px 0 0;
+  margin: 0;
   /* Keep the username on a single inline run — Twitch's light theme ships
      `role="button"` defaults on the parent `.chat-line__username` that can
      break the trailing character to a new line. nowrap on the leaf span
@@ -448,6 +464,17 @@
   text-decoration: underline;
 }
 
+/* Twitch ships a hover background on `.link-fragment` (the inline link span
+   inside chat messages) for both dark and light themes — visually noisy
+   against our card chrome. Strip it; underline alone is enough. Scoped
+   under `.chat-shell` so our specificity (0,3,1) beats Twitch's likely
+   `.tw-root--theme-* .link-fragment:hover` rule (0,2,1) — equal specificity
+   would lose to source order since Twitch's stylesheet loads after ours. */
+.tw-root--theme-dark .chat-shell .link-fragment:hover,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .link-fragment:hover {
+  background: none !important;
+}
+
 /* Hover action icons (reply, etc.). Twitch ships the reply SVG at
    24×24 inside a same-sized button — visually overpowering vs. the
    7TV equivalent, which renders at ~14px. Shrink both the icon and
@@ -502,6 +529,13 @@
   width: 14px !important;
   height: 14px !important;
   display: block;
+}
+
+/* The reply-icon wrapper ships with a default box-shadow ring (Twitch's
+   focus-affordance carryover) that doubles up against our row hover
+   border on focus. Strip it. */
+.chat-shell .chat-line__reply-icon.chat-line__icon {
+  box-shadow: none !important;
 }
 
 /* System / welcome line */
@@ -665,8 +699,15 @@
   cursor: pointer;
   transition: background-color 120ms ease;
 }
-.chat-shell .seventv-chat-message-buttons .seventv-button:hover {
-  background-color: var(--color-background-button-text-hover, var(--gs-accent-light-v2));
+/* Row-hover idle fill for the action buttons — gives them a visible
+   chip against the row's hover wash so they read as buttons before the
+   user has hovered them directly. */
+.chat-shell .seventv-chat-message-background:hover .seventv-chat-message-buttons .seventv-button,
+.chat-shell .seventv-chat-message-background:focus-within .seventv-chat-message-buttons .seventv-button {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+.chat-shell .seventv-chat-message-background .seventv-chat-message-buttons .seventv-button:hover {
+  background-color: rgba(0, 0, 0, 0.8);
 }
 .chat-shell .seventv-chat-message-buttons .seventv-button svg {
   width: 14px;
@@ -1024,11 +1065,17 @@
 /* Inner `[data-test-selector="user-notice-line"]` ships Twitch's hashed
    layout class (e.g. `.cglxbn`) which sets `padding-inline: 1.6rem 16px`
    and `padding-block: 4px` with !important. The hashed name changes per
-   build, but the JS pass marks this element with `data-gs-sub-notice="1"`,
-   so we override at that stable hook and zero the inner padding — the
-   outer `.gs-notice-card-sub` wrapper already provides the card padding. */
+   build, so we anchor on the parent `.gs-notice-card` we control plus
+   the stable `[data-test-selector]`. Explicit logical longhands because
+   the `padding` shorthand doesn't always reset `padding-inline-*` /
+   `padding-block-*` when the longhand `!important` is in a different
+   stylesheet — the cascade between physical and logical longhands of the
+   same logical group is order-dependent unless we set both explicitly. */
+.chat-shell .gs-notice-card [data-test-selector="user-notice-line"],
 .chat-shell [data-gs-sub-notice="1"] {
   padding: 0 !important;
+  padding-inline: 0 !important;
+  padding-block: 0 !important;
 }
 .chat-shell .gs-notice-wrap {
   display: flex;
@@ -1526,6 +1573,22 @@
 }
 :is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-icon {
   fill: #1d4ed8;
+}
+
+/* Chat input box (the WYSIWYG editor at the bottom of the chat panel).
+   Dark theme: replace Twitch's default border with an inset box-shadow
+   so the field reads as a recessed surface rather than a stamped-on
+   line. `var(--input-border-width-small)` is Twitch's own token, so the
+   stroke width matches the rest of their inputs. */
+.tw-root--theme-dark .chat-shell .chat-wysiwyg-input-box {
+  box-shadow: inset 0 0 0 var(--input-border-width-small) rgb(56, 56, 56);
+}
+
+/* Chat input action row (emote / bits / cheer buttons sit beneath the
+   editor). Add a top gap so the button row breathes against the input
+   field's new inset border instead of butting up against it. */
+.chat-shell [data-test-selector="chat-input-buttons-container"] {
+  margin-block-start: 12px !important;
 }
 
 
