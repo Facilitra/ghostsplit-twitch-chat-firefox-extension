@@ -248,15 +248,20 @@
    *
    * @param {Element} row
    */
-  function softenUsernames(row) {
+  function softenUsernames(root) {
     // Native Twitch:  .chat-author__display-name  (inline style on the span)
     // 7TV:             .seventv-chat-user           (inline style on a div wrapper)
-    const targets = row.querySelectorAll(
-      ".chat-author__display-name, .seventv-chat-user"
+    // The `:not([data-gs-color="1"])` filter makes this idempotent and
+    // keeps repeat scans cheap (browsers index attribute selectors), so
+    // the same call is fine to run per-row OR document-wide — see
+    // `softenUsernamesEverywhere` below for the catch-all pass that
+    // picks up usernames in 7TV thread popups, hover preview cards, and
+    // any other surface our row-based scanner doesn't visit.
+    const targets = root.querySelectorAll(
+      '.chat-author__display-name:not([data-gs-color="1"]), .seventv-chat-user:not([data-gs-color="1"])'
     );
     targets.forEach((el) => {
       const node = /** @type {HTMLElement} */ (el);
-      if (node.dataset.gsColor === "1") return;
       // Read whichever color is currently effective: prefer the inline
       // attribute, fall back to computed style for elements where Twitch
       // sets the color via class.
@@ -573,6 +578,20 @@
     );
     rows.forEach(processRow);
     processNativeNotices();
+    softenUsernamesEverywhere();
+  }
+
+  /**
+   * Catch-all username soften pass scoped to the entire document, not
+   * just the rows the row-based scanner visits. Picks up usernames in
+   * 7TV reply-thread popups, hover preview cards, and any future surface
+   * 7TV / Twitch adds that renders a `.seventv-chat-user` or
+   * `.chat-author__display-name` outside the standard chat row DOM.
+   * Idempotent — the `:not([data-gs-color="1"])` filter inside
+   * `softenUsernames` skips elements we've already processed.
+   */
+  function softenUsernamesEverywhere() {
+    softenUsernames(document);
   }
 
   // ---- 3. observe new messages ---------------------------------------------
@@ -589,9 +608,11 @@
     // need attribute mutations for badges.
     observer = new MutationObserver((mutations) => {
       let sawNoticeCandidate = false;
+      let sawAnyAddition = false;
       for (const m of mutations) {
         m.addedNodes.forEach((node) => {
           if (!(node instanceof Element)) return;
+          sawAnyAddition = true;
           // Fast path: the added node IS a message row.
           if (
             node.matches?.(
@@ -622,6 +643,12 @@
         });
       }
       if (sawNoticeCandidate) processNativeNotices();
+      // Catch usernames mounted outside the standard row DOM (e.g. 7TV
+      // reply-thread popups, hover preview cards). Cheap — the
+      // `:not([data-gs-color="1"])` filter skips already-processed
+      // elements, so on a typical mutation batch this is a single
+      // index-friendly attribute query that returns zero matches.
+      if (sawAnyAddition) softenUsernamesEverywhere();
     });
 
     observer.observe(document.body, { childList: true, subtree: true });

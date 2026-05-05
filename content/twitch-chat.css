@@ -613,6 +613,25 @@
     inset 0 0 12px rgba(167, 139, 250, 0.12);
 }
 
+/* Idle margin: nudge the inner message block down so it sits cleanly
+   below the row's top edge / username header, instead of butting up
+   against it. */
+.chat-shell .seventv-user-message {
+  margin-top: 5px;
+}
+
+/* 7TV ships a hover/focus-within background + border-radius on the
+   inner `.seventv-user-message` (Vue-scoped via a data-v-* attribute,
+   so the hash changes per build). It paints a hsl gray wash that
+   layers on top of our row-level hover wash and reads as visual
+   noise. Strip it; our `.seventv-chat-message-background:hover` rule
+   above already provides the row hover treatment. */
+.chat-shell .seventv-user-message:hover,
+.chat-shell .seventv-user-message:focus-within {
+  background: none !important;
+  border: none !important;
+}
+
 /* User row: badges + username inline-flex, never wraps. `baseline`
    alignment keeps the username text on the same line as the colon and
    message body, even when a badge is taller than the text. */
