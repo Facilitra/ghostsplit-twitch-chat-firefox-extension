@@ -4,6 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] — 2026-05-05
+
+### Changed
+- `manifest.json` `browser_specific_settings.gecko.id`:
+  `ghostsplit-chat-theme@ghostsplit` → `twitch-chat-theme@ghostsplit.gg`.
+  Mozilla AMO permanently reserves an add-on ID once it has been used,
+  even after the listing is deleted, so the previously-used ID was no
+  longer available. Firefox treats the new ID as a separate add-on; users
+  who had a previous build sideloaded will need to remove it before
+  installing the new one. No code or behaviour changes vs 0.2.0.
+
 ## [0.2.0] — 2026-05-05
 
 ### Added
