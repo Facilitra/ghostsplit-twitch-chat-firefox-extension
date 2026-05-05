@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.2.2] — 2026-05-05
+
+### Fixed
+- Usernames in 7TV's reply-thread popup now soften to the same pastels
+  as the main chat row (previously rendered with Twitch's harsh neon
+  originals because the popup mounts outside our row scanner's path).
+  Added a catch-all document-wide soften pass that runs on every
+  observer batch, gated by `:not([data-gs-color="1"])` so repeat scans
+  cost nothing.
+- 7TV's hover/focus-within gray background + border-radius on the
+  inner `.seventv-user-message` is now stripped — it was layering on
+  top of our own row hover wash and reading as visual noise.
+
+### Changed
+- `.seventv-user-message` gains `margin-top: 5px` at idle so the
+  message block doesn't butt up against the row's top edge.
+
 ## [0.2.1] — 2026-05-05
 
 ### Changed
