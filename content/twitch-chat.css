@@ -413,8 +413,15 @@
    is inside) collapse it entirely. Otherwise the empty wrapper still
    counts as a flex item and the parent `.gs-row-badges` `gap` adds
    visible 3 px spacing between the pill and the username for every
-   such empty wrapper. */
-.chat-shell .gs-row-badges > *:not(:has(.gs-badge)) {
+   such empty wrapper.
+
+   The `:not(.gs-badge)` guard is essential for 7TV: there the pill
+   is inserted as a DIRECT child of `.gs-row-badges` (it's a sibling
+   of the original `.seventv-chat-badge`, not nested inside a `.dvtAVE`
+   wrapper like on vanilla). Without the guard, `:not(:has(.gs-badge))`
+   matches the pill itself (`.gs-badge` does not have `.gs-badge` as a
+   DESCENDANT — `:has()` excludes self) and hides every pill on 7TV. */
+.chat-shell .gs-row-badges > *:not(.gs-badge):not(:has(.gs-badge)) {
   display: none !important;
 }
 

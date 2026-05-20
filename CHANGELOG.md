@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] — 2026-05-21
+
+### Fixed
+- **7TV pills hidden by the empty-wrapper collapse rule.** The
+  `.gs-row-badges > *:not(:has(.gs-badge))` rule introduced in 0.3.0
+  to collapse role-less badge wrappers also matched the pill itself
+  on 7TV, because there the pill is inserted as a DIRECT child of
+  `.gs-row-badges` (sibling of the original `.seventv-chat-badge`),
+  not nested inside a `.dvtAVE` wrapper like on vanilla — and a
+  `.gs-badge` doesn't have `.gs-badge` as a descendant, so `:has()`
+  excluded it from the "has a pill" path and hit it with the collapse
+  instead. Added a `:not(.gs-badge)` guard to the selector so the
+  pill is never a candidate for collapse.
+
 ## [0.3.0] — 2026-05-20
 
 ### Added
