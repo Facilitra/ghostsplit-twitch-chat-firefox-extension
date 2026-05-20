@@ -43,6 +43,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Gate: refuse to release if the CI workflow didn't pass on this
+      # exact commit. Tags are cut from commits that already live on
+      # `main`, so `ci.yml` should have run on push-to-main and produced
+      # a conclusion before the tag landed. If no CI run exists or it
+      # finished with anything other than `success`, abort cleanly here
+      # — preferable to discovering a regression after the GitHub
+      # Release has already been published.
+      - name: Verify CI passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHA="${{ github.sha }}"
+          echo "Looking up CI conclusion for $SHA"
+          RESULT=$(gh run list \
+            --commit "$SHA" \
+            --workflow ci.yml \
+            --limit 1 \
+            --json status,conclusion \
+            --jq '.[0] | "\(.status // "none")/\(.conclusion // "none")"')
+          echo "CI status/conclusion for $SHA: ${RESULT:-none}"
+          case "${RESULT:-none}" in
+            completed/success)
+              echo "CI passed; proceeding with release."
+              ;;
+            none|null/null|"/")
+              echo "::error::No CI run found for $SHA. Refusing to release without CI validation. Push the commit to main first, wait for CI to go green, then re-tag."
+              exit 1
+              ;;
+            *)
+              echo "::error::CI did not pass for $SHA (got: $RESULT). Refusing to release."
+              exit 1
+              ;;
+          esac
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
