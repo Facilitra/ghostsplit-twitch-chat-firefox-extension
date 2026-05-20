@@ -2011,6 +2011,13 @@
 }
 .chat-shell .seventv-announce-message-container .announce-message {
   display: block;
+  /* 7TV ships `padding: …` via a Vue-scoped rule
+     (`.announce-message[data-v-922c1330] { padding: … }`). The
+     `data-v-*` hash rotates per build, so anchoring on it would rot;
+     the bare-class selector loses specificity to the scoped attribute
+     selector, hence `!important` to zero out the indent regardless
+     of which scoped variant 7TV ships today. */
+  padding: 0 !important;
 }
 .chat-shell .seventv-announce-message-container .seventv-user-message {
   /* Already styled by the main 7TV row rules; just reset any inherited

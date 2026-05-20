@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] — 2026-05-21
+
+### Fixed
+- **CI release workflow STILL failed at `prelint`** even after 0.3.2's
+  rewrite. Root cause: the error-message string in the inline `node -e`
+  argument contained backticks (`` `npm run sync` ``) for terminal
+  styling. Bash performs command substitution on backticks INSIDE
+  double-quoted strings before Node ever sees them, so on CI bash
+  spawned `npm run sync` as a subshell — which failed loudly (no
+  sibling repo), and the failure output got interpolated into the
+  Node `-e` argument, producing a Node `SyntaxError`. Dropped the
+  backticks from the message; plain text reads the same and survives
+  shell interpolation.
+- **7TV announce-message Vue padding override.**
+  `.seventv-announce-message-container .announce-message` now carries
+  `padding: 0 !important` to defeat 7TV's scoped
+  `[data-v-922c1330]`-selector padding without anchoring on the
+  build-rotating Vue hash.
+
 ## [0.3.2] — 2026-05-21
 
 ### Fixed

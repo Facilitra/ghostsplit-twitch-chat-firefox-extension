@@ -1,6 +1,6 @@
 {
   "name": "ghostsplit-twitch-chat-firefox-extension",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Firefox extension that restyles native twitch.tv chat to match the GhostSplit chat look. Replaces image badges with text pills (SUB/MOD/VIP/etc.), softens username colors, and works alongside 7TV / BetterTTV / FrankerFaceZ.",
   "private": true,
   "license": "MIT",
@@ -26,7 +26,7 @@
   "scripts": {
     "sync-check": "node ../sync-content.mjs --check",
     "sync": "node ../sync-content.mjs",
-    "prelint": "node -e \"try{require('fs').accessSync('../sync-content.mjs')}catch{process.exit(0)};const r=require('child_process').spawnSync(process.execPath,['../sync-content.mjs','--check'],{stdio:'inherit'});if(r.status){console.error('content drift detected — run `npm run sync` in either repo');process.exit(1)}\"",
+    "prelint": "node -e \"try{require('fs').accessSync('../sync-content.mjs')}catch{process.exit(0)};const r=require('child_process').spawnSync(process.execPath,['../sync-content.mjs','--check'],{stdio:'inherit'});if(r.status){console.error('content drift detected — run npm run sync in either repo');process.exit(1)}\"",
     "lint": "npx --yes web-ext lint --source-dir . --ignore-files \"dist\" \"dist/**\" \".github\" \".github/**\" package.json README.md CHANGELOG.md LICENSE .gitignore",
     "build": "npx --yes web-ext build --source-dir . --artifacts-dir ./dist --overwrite-dest --ignore-files \"dist\" \"dist/**\" \".github\" \".github/**\" package.json README.md CHANGELOG.md LICENSE .gitignore",
     "icons": "node ../generate-icons.mjs ./icons"
