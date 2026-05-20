@@ -287,6 +287,174 @@
 
 
 /* =============================================================================
+   1c. SHARED ROW LAYER — gs-row-* classes stamped by content/badges.js
+   ----------------------------------------------------------------------------
+   Both DOM shapes (vanilla Twitch and 7TV) are tagged at document_idle with
+   the same set of `gs-row-*` classes by tagRowParts() in badges.js, so a
+   single selector set styles both renderers. The per-renderer native rules
+   in sections 2 (native) and 3 (7TV) remain as fallbacks for the brief
+   window between document_start (CSS lands) and document_idle (JS boots) —
+   anything new should target `gs-row-*` instead of paired native selectors.
+   ============================================================================ */
+
+/* Row — same payload as `.chat-line__message` / `.seventv-chat-message-background`
+   but expressed once. */
+.chat-shell .gs-row {
+  display: block;
+  padding: var(--gs-row-pad-y) var(--gs-row-pad-x);
+  margin: var(--gs-row-margin) 4px;
+  min-height: var(--gs-row-min-h);
+  border: 1px solid transparent;
+  border-radius: var(--gs-radius);
+  background: var(--gs-row-bg);
+  font-family: var(--gs-font) !important;
+  font-size: var(--gs-text-md) !important;
+  line-height: var(--gs-leading);
+  color: var(--gs-text);
+  position: relative;
+  transition:
+    background-color var(--gs-dur) var(--gs-ease),
+    border-color     var(--gs-dur) var(--gs-ease);
+}
+
+.chat-shell .gs-row:hover {
+  background-color: var(--gs-accent-light-v2);
+  border-color: var(--gs-accent-glow);
+}
+
+/* 7TV-specific override: on 7TV the visible card lives on the INNER
+   `.seventv-chat-message-background` (the `gs-row-frame`), not on the
+   row root. Without this reset the outer `.seventv-message` would paint
+   a second card around the inner one — double padding, double border,
+   double background. So on 7TV the outer `.gs-row` stays a transparent
+   structural wrapper and lets the inner frame carry the card chrome.
+   Vanilla doesn't have this problem because `.chat-line__message` IS
+   the visible card; `.chat-line__message-container` is just a flex
+   layout div with no chrome. */
+.chat-shell .gs-row.seventv-message {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+}
+.chat-shell .gs-row.seventv-message:hover {
+  background-color: transparent !important;
+  border-color: transparent !important;
+}
+
+/* Timestamp */
+.chat-shell .gs-row-time {
+  color: var(--gs-muted2);
+  font-size: var(--gs-text-sm);
+  margin-right: var(--gs-badge-gap);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+.chat-shell .gs-row-time:empty,
+.chat-shell .gs-row-time[hidden] {
+  display: none;
+}
+
+/* Username + display name. The `margin-right` is intentionally
+   SMALLER than `--gs-badge-gap` (3 px): 7TV's colon span ships as
+   `<span>: </span>` with its own trailing space character, so the
+   full badge-gap value layered on top of that text-space reads as a
+   tunnel. 1 px keeps the username slightly breathing-room from the
+   colon without doubling up with 7TV's intrinsic spacing, and on
+   vanilla (whose colon span has no trailing space) it still gives a
+   visible-but-tight gap. */
+.chat-shell .gs-row-user {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 1px;
+  vertical-align: baseline;
+}
+.chat-shell .gs-row-name {
+  font-weight: 700;
+  cursor: pointer;
+  transition: text-decoration var(--gs-dur) var(--gs-ease);
+}
+.chat-shell .gs-row-name:hover {
+  text-decoration: underline;
+}
+
+/* Badge list parent */
+.chat-shell .gs-row-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gs-badge-gap);
+  margin-right: var(--gs-badge-gap);
+  flex-wrap: wrap;
+}
+
+/* Force each direct child of the badge list to be inline-flex. Vanilla
+   wraps every badge in `<div class="InjectLayout-sc-1i43xsx-0 dvtAVE">`
+   and the hashed class can resolve to `display: block` (or anything
+   else Twitch ships) — when that happens the wrapper takes its own
+   row as a flex item, pushing the pill onto the line ABOVE the
+   username instead of inline with it. Forcing the wrappers to
+   inline-flex with baseline alignment keeps everything on the same
+   line regardless of Twitch's class hash. The 7TV side wraps each
+   badge in `<div class="seventv-chat-badge">` which we already style
+   explicitly, so this rule is a no-op there. */
+.chat-shell .gs-row-badges > * {
+  display: inline-flex !important;
+  align-items: center !important;
+  vertical-align: baseline !important;
+}
+
+/* …but if a wrapper holds no `.gs-badge` pill (the badge's alt didn't
+   map to any role, e.g. a custom channel sub badge or a one-off event
+   badge — only the original hidden `<button data-a-target="chat-badge">`
+   is inside) collapse it entirely. Otherwise the empty wrapper still
+   counts as a flex item and the parent `.gs-row-badges` `gap` adds
+   visible 3 px spacing between the pill and the username for every
+   such empty wrapper. */
+.chat-shell .gs-row-badges > *:not(:has(.gs-badge)) {
+  display: none !important;
+}
+
+/* Body */
+.chat-shell .gs-row-body {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Mention */
+.chat-shell .gs-row-mention {
+  color: var(--gs-mention);
+  font-weight: 700;
+  cursor: pointer;
+}
+.chat-shell .gs-row-mention:hover {
+  color: var(--gs-accent-hover);
+}
+
+/* Link */
+.chat-shell .gs-row-link {
+  color: var(--gs-link);
+  text-decoration: none;
+}
+.chat-shell .gs-row-link:hover {
+  text-decoration: underline;
+}
+
+/* Emote sizing — single rule for both renderers */
+.chat-shell .gs-row-emote img {
+  max-height: var(--gs-emote-max-h);
+  width: auto;
+  vertical-align: middle;
+}
+.chat-shell .gs-row-emote-big img {
+  max-height: var(--gs-emote-max-h-big);
+}
+
+
+/* =============================================================================
    2. NATIVE TWITCH CHAT
    ============================================================================ */
 
@@ -547,6 +715,65 @@
   box-shadow: none !important;
 }
 
+/* Paid / "animated" messages (Twitch's Power-Ups: Gigantify, Cosmic
+   Abyss, Rainstorm, etc.) ship inside `.animatedMessageContainer` with
+   a looping <video> backdrop. The chat-line__message inside carries
+   an extra `.chat-line__message-effect-icons` modifier on its
+   `.chat-line__icons` button cluster — and adds a "Probar efecto" /
+   "Try Effect" text button + a play/pause toggle alongside the usual
+   reply icon. Two things change for these:
+     1. The button cluster has to stay visible at idle (the user
+        interacts with Try Effect / Pause WITHOUT hovering — the row
+        is already a paid attention-grabber, no need to hide affordances).
+     2. The animated video underneath would chew through icon contrast,
+        so each button gets a soft dark pill so the SVGs read.
+   We sit the cluster inside the top-right corner of the message frame
+   (4 px from each edge) and give it a z-index that beats the video
+   layer. */
+.chat-shell .chat-line__icons.chat-line__message-effect-icons {
+  opacity: 1 !important;
+  top: 4px !important;
+  right: 4px !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+}
+
+/* Per-button pill so each icon is legible against the animated video.
+   The existing `.chat-line__icons button` rule already gives them a
+   20×20 rounded chrome — here we just paint a backdrop at idle so
+   they don't have to be hovered to be readable. */
+.chat-shell .chat-line__icons.chat-line__message-effect-icons button {
+  background: rgba(0, 0, 0, 0.55) !important;
+  color: #fff !important;
+}
+.chat-shell .chat-line__icons.chat-line__message-effect-icons button:hover,
+.chat-shell .chat-line__icons.chat-line__message-effect-icons button:focus-visible {
+  background: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* "Probar efecto" / "Try Effect" is a text button (not an icon), so the
+   20×20 cap from the base `.chat-line__icons button` rule cuts off its
+   label. Restore an auto width with compact padding + match the dark
+   pill chrome. */
+.chat-shell .chat-line__try-it-icon button {
+  width: auto !important;
+  min-width: 0 !important;
+  padding: 0 8px !important;
+  height: 22px !important;
+  border-radius: var(--gs-radius-sm) !important;
+  font-size: var(--gs-text-sm) !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+}
+.chat-shell .chat-line__try-it-icon--button .bKIwJZ,
+.chat-shell .chat-line__try-it-icon button > div {
+  width: auto !important;
+  height: auto !important;
+  white-space: nowrap;
+}
+
 /* System / welcome line */
 .chat-shell .chat-line__status {
   font-style: italic;
@@ -613,11 +840,14 @@
     inset 0 0 12px rgba(167, 139, 250, 0.12);
 }
 
-/* Idle margin: nudge the inner message block down so it sits cleanly
-   below the row's top edge / username header, instead of butting up
-   against it. */
+/* Inner message block — flush with the row's top edge. The previous
+   5 px nudge was there because the outer `.seventv-message` carried its
+   own padding from the row rules in section 2, so the inner content
+   needed extra space. Now that section 1c resets the outer to zero
+   chrome for 7TV (the visible card lives on `.seventv-chat-message-background`
+   instead), this margin would re-introduce a gap above every message. */
 .chat-shell .seventv-user-message {
-  margin-top: 5px;
+  margin-top: 0;
 }
 
 /* 7TV ships a hover/focus-within background + border-radius on the
@@ -698,9 +928,18 @@
    image dropped into a message body) can't blow up the row height.
    Native Twitch emotes carry the `chat-image` class; 7TV uses
    .seventv-chat-emote inside .seventv-emote-box[ratio]; BTTV proxies
-   through the same 7TV box. */
+   through the same 7TV box.
+
+   ⚠ Narrowed to `img.seventv-chat-emote` (was `.seventv-chat-emote`)
+   on purpose: 7TV also reuses the `seventv-chat-emote` class on inline
+   <svg> elements for unicode emoji (e.g. 👀 → `<svg class="seventv-chat-emote
+   seventv-emoji" style="width: 2rem; height: 2rem;"><use xlink:href="#1f440">`).
+   SVG has no intrinsic pixel size — only a viewBox — so the previous
+   `width: auto !important; height: auto !important` collapsed those
+   SVGs to 0×0 and the message rendered empty. The SVG-specific rule
+   below caps the size without zeroing width/height. */
 .chat-shell .seventv-emote-box,
-.chat-shell .seventv-chat-emote,
+.chat-shell img.seventv-chat-emote,
 .chat-shell [data-a-target="emote-name"] img.chat-image,
 .chat-shell .seventv-chat-message-body img,
 .chat-shell .chat-line__message-body img {
@@ -712,11 +951,26 @@
   object-fit: contain;
 }
 
+/* Unicode emoji rendered as inline SVG by 7TV (`.seventv-emoji`). Must
+   use explicit width/height instead of `width: auto` — SVG resolves
+   `auto` to 0 and the glyph disappears. Capped at the same height as
+   the image emote so emoji and emote rows stay visually balanced. */
+.chat-shell svg.seventv-chat-emote {
+  width: var(--gs-emote-max-h) !important;
+  height: var(--gs-emote-max-h) !important;
+  vertical-align: middle;
+}
+
 /* Allow oversize 7TV emotes (ratio="3" / "4") a bit more room without
    letting them go full-billboard. */
-.chat-shell .seventv-emote-box[ratio="3"] .seventv-chat-emote,
-.chat-shell .seventv-emote-box[ratio="4"] .seventv-chat-emote {
+.chat-shell .seventv-emote-box[ratio="3"] img.seventv-chat-emote,
+.chat-shell .seventv-emote-box[ratio="4"] img.seventv-chat-emote {
   max-height: var(--gs-emote-max-h-big) !important;
+}
+.chat-shell .seventv-emote-box[ratio="3"] svg.seventv-chat-emote,
+.chat-shell .seventv-emote-box[ratio="4"] svg.seventv-chat-emote {
+  width: var(--gs-emote-max-h-big) !important;
+  height: var(--gs-emote-max-h-big) !important;
 }
 
 /* Hover action buttons (copy / reply). 7TV ships these as bare
@@ -763,7 +1017,11 @@
   display: block;
 }
 
-/* Inline reply preview */
+/* Inline reply preview. The `help` cursor signals to the user that
+   the block is informational context (the quoted message they're
+   replying to) and not part of the current message body — matches the
+   convention used elsewhere for hover-to-explain affordances (truncated
+   pills, etc.). */
 .chat-shell .seventv-reply-part {
   display: flex;
   align-items: center;
@@ -777,6 +1035,7 @@
   font-size: var(--gs-text-sm);
   color: var(--gs-muted);
   opacity: 0.9;
+  cursor: help;
 }
 .chat-shell .seventv-chat-reply-icon {
   flex: 0 0 auto;
@@ -879,7 +1138,11 @@
   text-transform: uppercase;
 }
 
-/* Reward NAME chip — same chip on both renderers. */
+/* Reward NAME chip — same chip on both renderers. The previous
+   `vertical-align: middle` was pushing the chip up against the
+   surrounding row text (which sits on the baseline) and producing a
+   visible offset between "Canjeado:" and the chip; sitting on the
+   baseline like the rest of the inline content reads as one line. */
 .chat-shell .reward-name,
 .chat-shell .gs-redeem-name {
   display: inline-block;
@@ -889,7 +1152,6 @@
   border-radius: var(--gs-radius-sm);
   background: rgba(255, 90, 90, 0.22);
   color: var(--gs-text);
-  vertical-align: middle;
 }
 
 /* Cost block: icon + cost number, single inline-flex unit. */
@@ -978,7 +1240,7 @@
 .chat-shell *:has(> [data-test-selector="user-notice-line"]) {
   display: block;
   margin: var(--gs-row-margin) 4px !important;
-  padding: 8px 2px !important;
+  padding: 8px 6px !important;
   border: 1px solid rgba(90, 170, 255, 0.55);
   border-left: 4px solid rgba(90, 170, 255, 0.7);
   background: rgba(90, 170, 255, 0.12);
@@ -1210,6 +1472,9 @@
   font-size: var(--gs-text-sm);
   color: var(--gs-muted);
   opacity: 0.9;
+  cursor: help;     /* same affordance as the 7TV .seventv-reply-part —
+                       signals that the block is contextual quote, not
+                       part of the current message body */
 }
 
 /* The preview's inner paragraph carries the original message in its
@@ -1277,6 +1542,7 @@
   font-size: var(--gs-text-sm);
   color: var(--gs-muted);
   opacity: 0.9;
+  cursor: help;
 }
 
 /* ---------- Native Twitch CHANNEL-POINTS REDEEM (legacy fallbacks) ----------
@@ -1312,6 +1578,17 @@
     inset 0 0 12px rgba(167, 139, 250, 0.12);
 }
 
+/* 7TV ships its own padding-left on `.seventv-highlight` scoped via a
+   Vue `data-v-*` attribute (e.g. `.seventv-highlight[data-v-98f5cc74]
+   { padding-left: 1.1rem }`). The `data-v-*` hash rotates per 7TV
+   build, so anchoring on it would silently rot. The bare class
+   selector has lower specificity than the attribute-scoped one, hence
+   `!important` to keep the indent regardless of which scoped variant
+   7TV ships today. */
+.chat-shell .seventv-highlight {
+  padding-left: 1.1rem !important;
+}
+
 
 /* =============================================================================
    4b. SYNTHESIZED PILLS — text badges injected by content/badges.js
@@ -1334,6 +1611,27 @@
   display: none !important;
 }
 
+/* Hide the vanilla wrapper `<div>` that contains the unprocessed badge
+   button too. Twitch ships each native badge as:
+     <div class="…dvtAVE…">           (hashed wrapper — class rotates per build)
+       <button data-a-target="chat-badge">
+         <img class="chat-badge" alt="…">
+       </button>
+     </div>
+   Hiding only the button leaves the wrapper div reserving an inline
+   layout slot, which produces a 1-frame "indented empty space" before
+   the username between document_start (CSS lands) and document_idle
+   (badges.js runs and tags everything with data-gs-processed). With
+   :has() we hide the wrapper too — and ONLY when it still holds an
+   unprocessed badge. After the JS pass tags the badge as processed,
+   :has() no longer matches and the wrapper visibility decision falls
+   back to badges.js's own style.display setting on the wrapper. */
+.chat-shell *:has(
+  > button[data-a-target="chat-badge"]:not([data-gs-processed])
+) {
+  display: none !important;
+}
+
 /* Belt-and-suspenders: if a 7TV badge list has zero pills (every
    original badge mapped to nothing — only custom channel sub badges
    or event badges), collapse the wrapper so its margin-right doesn't
@@ -1343,6 +1641,61 @@
 .chat-shell .seventv-chat-user-badge-list:not(:has(.gs-badge)) {
   display: none !important;
   margin: 0 !important;
+}
+
+/* Shared collapse rule for both renderers via the `gs-row-badges`
+   class that tagRowParts() stamps on vanilla's badge-list <span> AND
+   7TV's `.seventv-chat-user-badge-list`. Catches the case where the
+   container is empty of `.gs-badge` pills — either because every
+   original badge mapped to nothing (only custom channel sub badges /
+   event badges, all hidden) or because the row literally has no
+   badges. Without this rule the empty container still contributes its
+   `gap` and `margin-right` to the row, leaving a visible indent before
+   the username. */
+.chat-shell .gs-row-badges:not(:has(.gs-badge)) {
+  display: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+/* Vanilla-only tighten-up: when a vanilla row has pills, the
+   `.gs-row-badges` parent's `margin-right` doubles up against the
+   last pill's own right gap and pushes the username further away than
+   on 7TV. 7TV's `.seventv-chat-user` already runs at `gap: 3px` as a
+   flex container, so removing the margin there would leave no
+   spacing at all — that's why this is gated on `:not(.seventv-message)`. */
+.chat-shell .gs-row:not(.seventv-message) .gs-row-badges:has(.gs-badge) {
+  margin-right: 0 !important;
+}
+
+/* Hide the colon between username and message body on both renderers,
+   keeping only the natural single-character gap so the row reads as
+   "username message" instead of "username : message".
+
+   Vanilla: `<span aria-hidden="true">:</span>` is the direct sibling
+   after `.gs-row-user`. Removing it from layout via `display: none`
+   leaves the HTML whitespace between the original sibling elements,
+   which the browser normalises to a single rendered space — exactly
+   the gap we want. */
+.chat-shell .gs-row:not(.seventv-message) .gs-row-user + span[aria-hidden="true"] {
+  display: none !important;
+}
+
+/* 7TV: the colon span has no class — it's just `<span>: </span>` (the
+   trailing space is intentional, since Vue templates ship with no HTML
+   whitespace between siblings to absorb). Anchor on `:has(+ body)` so
+   we pick out the unclassed span that immediately precedes the message
+   body, without touching the other classless spans in the user-message
+   subtree (the empty `<span data-v-…></span>` placeholders). Hiding it
+   removes both the colon glyph AND its trailing space, so we restore
+   the visual gap via a tiny `margin-left` on the body itself — same
+   effect as the HTML whitespace fallback on vanilla. */
+.chat-shell .seventv-user-message > span:has(+ .seventv-chat-message-body) {
+  display: none !important;
+}
+.chat-shell .seventv-chat-message-body {
+  margin-left: 0.25em;
 }
 
 /* Pill base — minuscule type per user feedback (10 px, tight padding) */
@@ -1373,6 +1726,16 @@
    gap before the username. */
 .chat-shell .gs-badge:last-child {
   margin-right: 0;
+}
+
+/* Pills whose label was truncated by content/badges.js (longer than
+   BADGE_LABEL_MAX). The full label / Twitch alt stays available via the
+   `title` attribute (native browser tooltip); the `help` cursor signals
+   to the user that hovering reveals more context — otherwise "FOUN" or
+   "ADMI" reads as a typo. Affects only truncated pills; short labels
+   like SUB / VIP / MOD keep `cursor: default`. */
+.chat-shell .gs-badge[data-gs-truncated="1"] {
+  cursor: help;
 }
 
 /* Role-specific recolors (mirror _chat.scss .chat-badge-*) */
@@ -1436,6 +1799,669 @@
   border-color: var(--gs-bits-bd);
   color: #7dd3fc;
 }
+
+
+/* =============================================================================
+   4c. NEW FAMILIES (samples confirmed in docs/chat-example-07..11)
+   ----------------------------------------------------------------------------
+   Each block below carries the SCSS source line range it ports from
+   `twitch-split-client/styles/components/_chat.scss` plus the DOM anchor
+   that was confirmed in the captured dumps. Anything 7TV-exclusive is
+   gated on `.seventv-*` selectors only; anything vanilla-exclusive is
+   gated on `[data-test-selector=…]` / `[data-a-target=…]` / role-marker
+   classes that Twitch's own a11y / playwright code depends on (stable
+   across builds, unlike the hashed `Layout-sc-*` / `data-v-*` salts).
+   ============================================================================ */
+
+/* ---------- Notice palette per `[data-gs-notice-kind]` ----------------------
+   Driven by content/badges.js → classifyNoticeText() → processNativeNotice().
+   The base `.gs-notice-card` rule lives in section 4 (already there) and
+   defaults to the blue sub palette. Each `[data-gs-notice-kind=…]` block
+   below ONLY redeclares border/background/text/icon-fill so the base
+   stays the source of truth for everything else (radius, padding, etc.).
+   Source: _chat.scss:687–820. */
+
+.chat-shell .gs-notice-card[data-gs-notice-kind="gift"] {
+  border-color: rgba(63, 214, 140, 0.6) !important;
+  border-left-color: rgba(63, 214, 140, 0.75) !important;
+  background: rgba(63, 214, 140, 0.12) !important;
+  box-shadow: 0 0 0 1px rgba(63, 214, 140, 0.18) !important;
+}
+.chat-shell .gs-notice-card[data-gs-notice-kind="gift"] .gs-notice-text,
+.chat-shell .gs-notice-card[data-gs-notice-kind="gift"] .gs-notice-icon {
+  color: rgba(63, 214, 140, 0.85) !important;
+  fill: rgba(63, 214, 140, 0.85) !important;
+}
+
+.chat-shell .gs-notice-card[data-gs-notice-kind="raid"] {
+  border-color: rgba(255, 120, 120, 0.6) !important;
+  border-left-color: rgba(255, 120, 120, 0.75) !important;
+  background: rgba(255, 120, 120, 0.12) !important;
+  box-shadow: 0 0 0 1px rgba(255, 120, 120, 0.18) !important;
+}
+.chat-shell .gs-notice-card[data-gs-notice-kind="raid"] .gs-notice-text,
+.chat-shell .gs-notice-card[data-gs-notice-kind="raid"] .gs-notice-icon {
+  color: rgba(255, 120, 120, 0.85) !important;
+  fill: rgba(255, 120, 120, 0.85) !important;
+}
+
+.chat-shell .gs-notice-card[data-gs-notice-kind="milestone"] {
+  border-color: rgba(255, 193, 7, 0.6) !important;
+  border-left-color: rgba(255, 193, 7, 0.75) !important;
+  background: rgba(255, 193, 7, 0.12) !important;
+  box-shadow: 0 0 0 1px rgba(255, 193, 7, 0.18) !important;
+}
+.chat-shell .gs-notice-card[data-gs-notice-kind="milestone"] .gs-notice-text,
+.chat-shell .gs-notice-card[data-gs-notice-kind="milestone"] .gs-notice-icon {
+  color: rgba(255, 193, 7, 0.9) !important;
+  fill: rgba(255, 193, 7, 0.9) !important;
+}
+
+.chat-shell .gs-notice-card[data-gs-notice-kind="bits"] {
+  border-color: var(--gs-bits-bd) !important;
+  border-left-color: var(--gs-bits-bd) !important;
+  background: var(--gs-bits-bg) !important;
+  box-shadow: 0 0 0 1px rgba(80, 210, 255, 0.18) !important;
+}
+.chat-shell .gs-notice-card[data-gs-notice-kind="bits"] .gs-notice-text,
+.chat-shell .gs-notice-card[data-gs-notice-kind="bits"] .gs-notice-icon {
+  color: rgba(80, 210, 255, 0.85) !important;
+  fill: rgba(80, 210, 255, 0.85) !important;
+}
+
+.chat-shell .gs-notice-card[data-gs-notice-kind="announce"] {
+  border-color: rgba(166, 120, 255, 0.85) !important;
+  border-left-color: rgba(166, 120, 255, 0.9) !important;
+  background: rgba(166, 120, 255, 0.14) !important;
+  box-shadow: 0 0 0 1px rgba(166, 120, 255, 0.22) !important;
+}
+.chat-shell .gs-notice-card[data-gs-notice-kind="announce"] .gs-notice-text,
+.chat-shell .gs-notice-card[data-gs-notice-kind="announce"] .gs-notice-icon {
+  color: rgba(166, 120, 255, 0.95) !important;
+  fill: rgba(166, 120, 255, 0.95) !important;
+}
+
+.chat-shell .gs-notice-card[data-gs-notice-kind="ratelimit"] {
+  border-color: rgba(255, 100, 100, 0.7) !important;
+  border-left-color: rgba(255, 100, 100, 0.8) !important;
+  background: rgba(255, 100, 100, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(255, 100, 100, 0.22) !important;
+}
+.chat-shell .gs-notice-card[data-gs-notice-kind="ratelimit"] .gs-notice-text,
+.chat-shell .gs-notice-card[data-gs-notice-kind="ratelimit"] .gs-notice-icon {
+  color: rgba(255, 100, 100, 0.9) !important;
+  fill: rgba(255, 100, 100, 0.9) !important;
+}
+
+/* ---------- Vanilla broadcaster announcement (.announcement-line) ----------
+   Confirmed in chat-example-08 (red/blue/orange/green/purple variants) +
+   inline `style="border-color: rgb(R,G,B)"` for the per-channel red /
+   custom color. The wrapper contains a header (icon + "Anuncio" label)
+   plus an embedded `.chat-line--inline.chat-line__message`. We collapse
+   the chrome onto the OUTER wrapper and let the inner message render
+   flat — same approach as the redeem card. */
+.chat-shell .announcement-line {
+  display: block !important;
+  margin: var(--gs-row-margin) 4px !important;
+  padding: 8px var(--gs-row-pad-x) !important;
+  border: 1px solid rgba(166, 120, 255, 0.85) !important;
+  border-left: 4px solid rgba(166, 120, 255, 0.9) !important;
+  background: rgba(166, 120, 255, 0.14) !important;
+  border-radius: var(--gs-radius) !important;
+  box-shadow: 0 0 0 1px rgba(166, 120, 255, 0.22) !important;
+  color: var(--gs-text);
+  position: relative;
+}
+.chat-shell .announcement-line--blue {
+  border-color: rgba(80, 170, 255, 0.7) !important;
+  border-left-color: rgba(80, 170, 255, 0.85) !important;
+  background: rgba(80, 170, 255, 0.14) !important;
+  box-shadow: 0 0 0 1px rgba(80, 170, 255, 0.22) !important;
+}
+.chat-shell .announcement-line--orange {
+  border-color: rgba(255, 153, 51, 0.75) !important;
+  border-left-color: rgba(255, 153, 51, 0.9) !important;
+  background: rgba(255, 153, 51, 0.14) !important;
+  box-shadow: 0 0 0 1px rgba(255, 153, 51, 0.22) !important;
+}
+.chat-shell .announcement-line--green {
+  border-color: rgba(63, 214, 140, 0.7) !important;
+  border-left-color: rgba(63, 214, 140, 0.85) !important;
+  background: rgba(63, 214, 140, 0.14) !important;
+  box-shadow: 0 0 0 1px rgba(63, 214, 140, 0.22) !important;
+}
+.chat-shell .announcement-line--purple {
+  border-color: rgba(166, 120, 255, 0.85) !important;
+  border-left-color: rgba(166, 120, 255, 0.9) !important;
+  background: rgba(166, 120, 255, 0.14) !important;
+  box-shadow: 0 0 0 1px rgba(166, 120, 255, 0.22) !important;
+}
+/* `--primary` is 7TV's name for the default Twitch announcement palette;
+   they preserve the same modifier system. Treat as the base purple. */
+.chat-shell .announcement-line--primary,
+.chat-shell .seventv-announce-message-container.announcement-line--primary {
+  border-color: rgba(166, 120, 255, 0.85) !important;
+  border-left-color: rgba(166, 120, 255, 0.9) !important;
+  background: rgba(166, 120, 255, 0.14) !important;
+}
+
+/* Embedded chat-line__message inside an announcement: strip its own
+   chrome so the announcement card frames the message cleanly. */
+.chat-shell .announcement-line .chat-line__message,
+.chat-shell .announcement-line .chat-line--inline {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+}
+
+/* Announcement header label ("Anuncio" / "Announcement") */
+.chat-shell .announcement-line .eDNrvd,
+.chat-shell .announcement-line .announce-title,
+.chat-shell .seventv-announce-message-container .announce-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: var(--gs-text-sm);
+  opacity: 0.85;
+}
+
+/* ---------- 7TV announcement container -------------------------------------
+   Sample: chat-example-09-7tv. Different DOM shape from vanilla (own
+   container class, own --primary/--blue palette modifiers). */
+.chat-shell .seventv-announce-message-container {
+  display: block !important;
+  margin: var(--gs-row-margin) 4px !important;
+  padding: 8px var(--gs-row-pad-x) !important;
+  border: 1px solid rgba(166, 120, 255, 0.85) !important;
+  border-left: 4px solid rgba(166, 120, 255, 0.9) !important;
+  background: rgba(166, 120, 255, 0.14) !important;
+  border-radius: var(--gs-radius) !important;
+  box-shadow: 0 0 0 1px rgba(166, 120, 255, 0.22) !important;
+  color: var(--gs-text);
+}
+.chat-shell .seventv-announce-message-container.announcement-line--blue {
+  border-color: rgba(80, 170, 255, 0.7) !important;
+  border-left-color: rgba(80, 170, 255, 0.85) !important;
+  background: rgba(80, 170, 255, 0.14) !important;
+}
+.chat-shell .seventv-announce-message-container .announce-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.chat-shell .seventv-announce-message-container .announce-icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+}
+.chat-shell .seventv-announce-message-container .announce-icon svg {
+  width: 100%;
+  height: 100%;
+}
+.chat-shell .seventv-announce-message-container .announce-message {
+  display: block;
+}
+.chat-shell .seventv-announce-message-container .seventv-user-message {
+  /* Already styled by the main 7TV row rules; just reset any inherited
+     background that would double-up the announcement card. */
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+
+/* ---------- AutoMod self-notification (held / removed) ---------------------
+   Sample: chat-example-08 lines 138-162, 517-541.
+   Discriminator: `.chat-line__message.chat-line__message--special.chat-line__message--alert`
+   with `[data-a-user="automod"]` username. Always renders as vanilla DOM
+   even with 7TV active (sample: chat-example-09 line 172+). */
+.chat-shell .chat-line__message.chat-line__message--alert.chat-line__message--special {
+  display: block;
+  margin: var(--gs-row-margin) 4px !important;
+  padding: 8px var(--gs-row-pad-x) !important;
+  border: 1px solid rgba(255, 153, 51, 0.55) !important;
+  border-left: 4px solid rgba(255, 153, 51, 0.75) !important;
+  background: rgba(255, 153, 51, 0.10) !important;
+  border-radius: var(--gs-radius) !important;
+  color: var(--gs-text);
+  font-size: var(--gs-text-md) !important;
+}
+.chat-shell .chat-line__message.chat-line__message--alert .chat-author__display-name {
+  font-weight: 700;
+  color: #ffd27a !important;
+}
+
+/* ---------- AutoMod moderator review row ----------------------------------
+   Same row class set as the self-notification, but contains the inner
+   `[id]<div class="message">` preview with `.text-fragment--moderated-highlight`
+   plus a `.chat-line__nested-component--float-right` action cluster
+   (Permitir / Denegar buttons). Sample: chat-example-09 line 172+. */
+.chat-shell .chat-line__message--alert .message-author__display-name {
+  font-weight: 700;
+  color: var(--gs-text);
+  margin-right: 4px;
+}
+.chat-shell .text-fragment--moderated-highlight,
+.chat-shell [role="mark"].text-fragment {
+  background: rgba(255, 90, 90, 0.30) !important;
+  color: var(--gs-text) !important;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+.chat-shell .chat-line__nested-component--float-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* ---------- Vanilla deleted-message body marker ---------------------------
+   Sample: chat-example-07 lines 285-319. Body span is replaced by
+   `.chat-line__message--deleted-notice[data-a-target=chat-deleted-message-placeholder]`. */
+.chat-shell .chat-line__message--deleted-notice,
+.chat-shell [data-a-target="chat-deleted-message-placeholder"] {
+  font-style: italic;
+  color: var(--gs-muted2) !important;
+  opacity: 0.75;
+}
+.chat-shell .chat-line__message:has(.chat-line__message--deleted-notice),
+.chat-shell .chat-line__message:has([data-a-target="chat-deleted-message-placeholder"]) {
+  opacity: 0.7;
+}
+
+/* ---------- 7TV deleted / timed-out message --------------------------------
+   Sample: chat-example-10-7tv lines 57-118. Discriminator is the
+   `.deleted` modifier on `.seventv-user-message`, NOT a state attribute.
+   Reason is rendered in `.seventv-chat-message-moderated` as a footer span. */
+.chat-shell .seventv-user-message.deleted {
+  opacity: 0.7;
+}
+.chat-shell .seventv-user-message.deleted .seventv-chat-message-body {
+  font-style: italic;
+  color: var(--gs-muted2) !important;
+}
+.chat-shell .seventv-chat-message-moderated {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: var(--gs-text-sm);
+  font-style: italic;
+  color: var(--gs-muted2);
+  opacity: 0.85;
+}
+
+/* ---------- Vanilla "Highlight my message" body modifier -------------------
+   Sample: chat-example-08 lines 542-613. The body span carries
+   `.chat-line__message-body--highlighted` when the row is a redeem of
+   the "Destacar mi mensaje" SKU. The redeem card itself already
+   carries the colored chrome (border + tinted background), so adding
+   a SECOND tint on the body inside doubles up and reads as a
+   highlighted pill on top of a highlighted card. Drop our own
+   background/border on the body — the row chrome is enough. */
+.chat-shell .chat-line__message-body--highlighted {
+  background: none !important;
+  border: none !important;
+  padding: 1px 4px;
+  margin-left: 2px;
+}
+
+/* ---------- 7TV has-highlight per-`[data-highlight-label]` palette ---------
+   Sample: chat-example-10-7tv lines 1-56 (First Message, purple) and
+   167-243 (Mentions You, red). 7TV writes two CSS variables on the row's
+   inline style — `--seventv-highlight-color` (full alpha) and
+   `--seventv-highlight-dim-color` (the same hue at 10 % alpha). We use
+   them so any future label (Returning Chatter, Subscriber Only, etc.)
+   picks up the right hue automatically.
+
+   Layout: small banner chip ABOVE the message (matches 7TV's own visual
+   convention), plus a thin colored left rail on the row body so the
+   highlight is recognizable even when the banner scrolls out of view.
+   `.seventv-chat-message-highlight-label` is a <div> (block by default)
+   AND 7TV ships its own Vue-scoped rules on it via `[data-v-…]`
+   selectors — that attribute scope wins specificity over our bare
+   class, so `!important` is needed on the chip's display + sizing
+   declarations or the banner stays full-width and unreadable. */
+.chat-shell .seventv-user-message.has-highlight {
+  /* Bare row — the colored banner chip above the message is the only
+     highlight cue. No background tint, no left rail. `!important` on
+     both lines because 7TV ships Vue-scoped rules that paint a tint
+     and a rail otherwise. */
+  background: none !important;
+  border-left: none !important;
+  border-radius: var(--gs-radius-sm);
+  padding: 4px 6px !important;
+  /* The label sits on its own line above the message, the rest stays
+     inline. Block container ensures the inline-flex .seventv-chat-user
+     wraps to a new line below the banner. */
+  display: block;
+}
+
+.chat-shell .seventv-chat-message-highlight-label {
+  /* Block so the banner takes its own line and the username + body
+     wrap to the next line. `width: max-content` keeps the chip hugging
+     its text instead of stretching full-width. Both go via !important
+     because 7TV ships Vue-scoped rules like
+     `.seventv-chat-message-highlight-label[data-v-…] { display: flex; width: 100%; }`
+     that win specificity against the bare class otherwise. */
+  display: block !important;
+  width: max-content !important;
+  max-width: 100% !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  padding: 2px 6px !important;
+  margin: 0 0 4px 0 !important;
+  border-radius: var(--gs-radius-sm);
+  background: var(--seventv-highlight-color, var(--gs-accent)) !important;
+  color: #fff !important;
+  vertical-align: baseline;
+}
+/* The element ships empty — 7TV renders the label text from the
+   `data-highlight-label` attribute via CSS. We do the same. */
+.chat-shell .seventv-chat-message-highlight-label::before {
+  content: attr(data-highlight-label) !important;
+}
+/* 7TV ships its own `::after` on the label that prints the value of
+   `[data-highlight-style]` (e.g. "0") as a literal trailing character
+   — visible in builds where the rule reaches:
+     .seventv-user-message.has-highlight[data-highlight-style="0"]
+       .seventv-chat-message-highlight-label[data-v-…]::after { content: "0"; }
+   Suppress it so only our `::before` text appears in the chip. */
+.chat-shell .seventv-chat-message-highlight-label::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* ---------- 7TV paint (animated paid username) -----------------------------
+   Sample: chat-example-09-7tv lines 43, 123 (TunnerES paint).
+   We don't override the animation 7TV ships — paint stays exactly as
+   they render it. This block only guarantees the paint container can
+   inherit gradients / clip-paths without our other rules clobbering it. */
+.chat-shell .seventv-painted-content.seventv-paint {
+  /* Let 7TV's own CSS (background-clip, -webkit-text-fill-color, etc.)
+     win on these properties — we never set them. The rule is here as a
+     guard so we don't accidentally regress when a future change adds a
+     blanket `color:` to the username container. */
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+/* ---------- 7TV emote-set update notification -----------------------------
+   When the channel adds / removes / renames a 7TV emote, 7TV injects a
+   system row with the change visualised: 7TV logo + "Added Emote" /
+   "Removed Emote" / "Renamed Emote" title + actor username (header),
+   then one `.change-row` per affected emote (emote preview + name +
+   original owner). DOM shape:
+
+     .seventv-emote-set-update-message-container
+       .container-header
+         .seventv-logo > svg          (the 7TV brand mark)
+         .seventv-message-title       (title text, colored by --seventv-accent)
+         .seventv-author > .seventv-chat-user   (actor username row)
+       .container-body
+         .change-row                  (one per change)
+           .change-emote > .seventv-emote-box  (emote preview)
+           .change-content
+             .emote-name              (the emote's name, with title attr)
+             .emote-owner             (original uploader credit)
+
+   Without dedicated rules, our generic 7TV row chrome makes the inline
+   spans collapse into illegible noise. The block below frames the
+   notification as a compact accent-bordered card with a two-column
+   change row. */
+.chat-shell .seventv-emote-set-update-message-container {
+  display: block;
+  padding: 6px 8px;
+  border: 1px solid var(--gs-accent-glow);
+  border-left: 3px solid var(--gs-accent-bright-v2);
+  background: var(--gs-accent-light-v2);
+  border-radius: var(--gs-radius);
+  font-size: var(--gs-text-sm);
+  color: var(--gs-text);
+}
+.chat-shell .seventv-emote-set-update-message-container .container-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.chat-shell .seventv-emote-set-update-message-container .seventv-logo {
+  display: inline-flex;
+  align-items: center;
+  /* 7TV defines `--seventv-accent` on document root; fall back to ours
+     when running on a Twitch tab where 7TV's CSS hasn't loaded yet. */
+  color: var(--seventv-accent, var(--gs-accent));
+  font-size: 14px;
+  line-height: 1;
+}
+.chat-shell .seventv-emote-set-update-message-container .seventv-logo svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+.chat-shell .seventv-emote-set-update-message-container .seventv-message-title {
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: var(--gs-text-sm);
+  /* The inline `style="color: var(--seventv-accent)"` from 7TV already
+     paints the title; this rule only fixes weight/size so it reads as
+     a header even when the accent var is missing. */
+}
+.chat-shell .seventv-emote-set-update-message-container .seventv-author {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  /* The actor's `.seventv-chat-user` carries `gs-row-user`; let the
+     normal row rules style it (username color, badges, etc.) — we
+     only place it on the right edge of the header. */
+}
+.chat-shell .seventv-emote-set-update-message-container .container-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chat-shell .seventv-emote-set-update-message-container .change-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: var(--gs-radius-sm);
+  background: rgba(255, 255, 255, 0.03);
+}
+.chat-shell .seventv-emote-set-update-message-container .change-emote {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.chat-shell .seventv-emote-set-update-message-container .change-emote .seventv-emote-box {
+  /* The preview always renders at the size 7TV picked via `ratio` —
+     don't let the generic emote-cap shrink it; this is a curated
+     preview, not an inline use. */
+  max-height: none !important;
+}
+.chat-shell .seventv-emote-set-update-message-container .change-emote img.seventv-chat-emote {
+  max-height: 36px !important;
+  width: auto !important;
+  height: auto !important;
+  vertical-align: middle;
+}
+.chat-shell .seventv-emote-set-update-message-container .change-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.chat-shell .seventv-emote-set-update-message-container .emote-name {
+  margin: 0;
+  font-weight: 700;
+  color: var(--gs-text);
+  font-size: var(--gs-text-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-shell .seventv-emote-set-update-message-container .emote-owner {
+  margin: 0;
+  font-size: var(--gs-text-sm);
+  color: var(--gs-muted2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Light-theme override — accent stays purple, surfaces flip. */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-emote-set-update-message-container {
+  background: var(--gs-accent-light-v2);
+  border-color: var(--gs-accent-bright-v2);
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-emote-set-update-message-container .change-row {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* ---------- 7TV rich-embed (clip / VOD / channel preview) ------------------
+   Sample: chat-example-10-7tv lines 196-216. 7TV renders URL previews
+   as a SIBLING of `.seventv-chat-message-body`, not inside it. */
+.chat-shell .seventv-chat-message-rich-embed {
+  display: block;
+  margin: 6px 0 2px;
+  border: 1px solid var(--gs-border2);
+  border-radius: var(--gs-radius);
+  background: var(--gs-panel-2);
+  overflow: hidden;
+  max-width: 380px;
+  transition:
+    border-color var(--gs-dur) var(--gs-ease),
+    background var(--gs-dur) var(--gs-ease);
+}
+.chat-shell .seventv-chat-message-rich-embed:hover {
+  border-color: var(--gs-accent-glow);
+  background: var(--gs-panel);
+}
+.chat-shell .seventv-chat-message-rich-embed-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.chat-shell .seventv-chat-message-rich-embed-layout {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.chat-shell .seventv-chat-message-rich-embed-layout-thumbnail {
+  flex: 0 0 auto;
+  width: 86px;
+  height: 48px;
+  background: var(--gs-bg);
+  overflow: hidden;
+}
+.chat-shell .seventv-chat-message-rich-embed-layout-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.chat-shell .seventv-chat-message-rich-embed-layout-description {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px 8px 4px 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+.chat-shell .seventv-chat-message-rich-embed-layout-description-title {
+  margin: 0;
+  font-size: var(--gs-text-sm);
+  font-weight: 700;
+  color: var(--gs-text);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.chat-shell .seventv-chat-message-rich-embed-layout-description-author {
+  margin: 0;
+  font-size: var(--gs-text-sm);
+  color: var(--gs-muted2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Vanilla chat-card preview (clip / VOD / channel) ---------------
+   Sample: chat-example-08 lines 36-64. Twitch's own card with a hashed
+   class (`chatCard--VU4fm`) — anchor on the stable
+   `[data-test-selector=chat-card-preview-container]` attribute. */
+.chat-shell [data-test-selector="chat-card-preview-container"] {
+  display: block;
+  margin: 6px 0 2px;
+  border: 1px solid var(--gs-border2);
+  border-radius: var(--gs-radius);
+  background: var(--gs-panel-2);
+  overflow: hidden;
+  max-width: 380px;
+  transition:
+    border-color var(--gs-dur) var(--gs-ease);
+}
+.chat-shell [data-test-selector="chat-card-preview-container"]:hover {
+  border-color: var(--gs-accent-glow);
+}
+.chat-shell [data-test-selector="chat-card-preview-container"] img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+.chat-shell [data-test-selector="chat-card-title"] {
+  font-size: var(--gs-text-sm);
+  font-weight: 700;
+  color: var(--gs-text);
+}
+.chat-shell [data-test-selector="chat-card-description"] {
+  font-size: var(--gs-text-sm);
+  color: var(--gs-muted2);
+}
+
+/* ---------- 7TV ban slider (moderator swipe-to-ban) ------------------------
+   Sample: chat-example-10-7tv lines 244-322. The `.wrapped` child carries
+   the actual message; everything else is the drag affordance. We must
+   keep the slider interactive (it's a moderator feature), so the
+   pointer-events rules in section 5 (preservation block) explicitly let
+   it through. Here we only tune the look of the background bands so
+   they match our palette. */
+.chat-shell .seventv-ban-slider .ban-background {
+  background: rgba(255, 90, 90, 0.45) !important;
+}
+.chat-shell .seventv-ban-slider .unban-background {
+  background: rgba(63, 214, 140, 0.45) !important;
+}
+.chat-shell .seventv-ban-slider .ban-background .text,
+.chat-shell .seventv-ban-slider .unban-background .text {
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--gs-text-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.chat-shell .seventv-ban-slider .grabbable-inner .dots {
+  opacity: 0.45;
+}
+
+/* ---------- 7TV URL token (`a.link-part`) — parity with .link-fragment ------
+   Sample: chat-example-10-7tv lines 192-194. */
+.chat-shell a.link-part {
+  color: var(--gs-link);
+  text-decoration: none;
+}
+.chat-shell a.link-part:hover {
+  text-decoration: underline;
+}
+
 
 /* =============================================================================
    LIGHT THEME OVERRIDES
@@ -1619,6 +2645,92 @@
   fill: #1d4ed8;
 }
 
+/* ---------- Light-theme overrides for new families (section 4c) ------------
+   The dark-theme palettes above use pale tints that disappear on a
+   white surface, so each notice kind gets a saturated text color.
+   Backgrounds keep the same hue family at slightly lower alpha (alpha
+   reads stronger against white than against black). */
+
+/* Per-kind notice text + icon */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="gift"] .gs-notice-text,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="gift"] .gs-notice-icon {
+  color: #1a7d5c !important;
+  fill: #1a7d5c !important;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="raid"] .gs-notice-text,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="raid"] .gs-notice-icon {
+  color: #b31c1c !important;
+  fill: #b31c1c !important;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="milestone"] .gs-notice-text,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="milestone"] .gs-notice-icon {
+  color: #f57f17 !important;
+  fill: #f57f17 !important;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="bits"] .gs-notice-text,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="bits"] .gs-notice-icon {
+  color: #0080b3 !important;
+  fill: #0080b3 !important;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="announce"] .gs-notice-text,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="announce"] .gs-notice-icon {
+  color: #5a2d7f !important;
+  fill: #5a2d7f !important;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="ratelimit"] .gs-notice-text,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .gs-notice-card[data-gs-notice-kind="ratelimit"] .gs-notice-icon {
+  color: #d32f2f !important;
+  fill: #d32f2f !important;
+}
+
+/* Announcement (both renderers) — darker text on a slightly lower-alpha
+   background so it reads as a colored card on white. */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .announcement-line,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-announce-message-container {
+  background: rgba(166, 120, 255, 0.10) !important;
+  color: #45454d;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .announcement-line--blue,
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-announce-message-container.announcement-line--blue {
+  background: rgba(80, 170, 255, 0.10) !important;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .announcement-line--orange {
+  background: rgba(255, 153, 51, 0.10) !important;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .announcement-line--green {
+  background: rgba(63, 214, 140, 0.10) !important;
+}
+
+/* AutoMod self / review — soft amber card */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .chat-line__message--alert.chat-line__message--special {
+  background: rgba(255, 153, 51, 0.08) !important;
+  color: #45454d;
+}
+:is(.tw-root--theme-light, .gs-light) .chat-shell .chat-line__message--alert .chat-author__display-name {
+  color: #c2410c !important;
+}
+
+/* Deleted message — same italic muted treatment, just on darker text */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .chat-line__message--deleted-notice,
+:is(.tw-root--theme-light, .gs-light) .chat-shell [data-a-target="chat-deleted-message-placeholder"],
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-chat-message-moderated {
+  color: #6b6b75 !important;
+}
+
+/* Rich embed / chat-card preview — lighter surface on light theme */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .seventv-chat-message-rich-embed,
+:is(.tw-root--theme-light, .gs-light) .chat-shell [data-test-selector="chat-card-preview-container"] {
+  background: var(--gs-panel) !important;
+  border-color: var(--gs-border) !important;
+}
+
+/* Moderated highlight `[role=mark]` — slightly different red on white */
+:is(.tw-root--theme-light, .gs-light) .chat-shell .text-fragment--moderated-highlight,
+:is(.tw-root--theme-light, .gs-light) .chat-shell [role="mark"].text-fragment {
+  background: rgba(220, 38, 38, 0.18) !important;
+  color: #18181b !important;
+}
+
 /* Chat input box (the WYSIWYG editor at the bottom of the chat panel).
    Dark theme: replace Twitch's default border with an inset box-shadow
    so the field reads as a recessed surface rather than a stamped-on
@@ -1656,6 +2768,22 @@
   .reward-part, .reward-username, .reward-name, .reward-cost,
   .milestone-part, .milestone-icon, .milestone-text,
   .viewer-name, .milestone-points,
+
+  /* AutoMod moderator review buttons (Permitir / Denegar) must stay
+     clickable so moderators can act on held messages. The badge anchor
+     also links to the AutoMod blog post and must stay interactive. */
+  .chat-line__nested-component--float-right,
+  .chat-line__nested-component--float-right button,
+  a[data-a-target="chat-badge"][href*="automod_blog"],
+
+  /* 7TV moderator swipe-to-ban widget — the slider itself must remain
+     draggable. The actual message inside `.wrapped` is styled by the
+     normal row rules; the outer wrapper just needs pointer-events. */
+  .seventv-ban-slider,
+  .seventv-ban-slider .grabbable-wrapper,
+  .seventv-ban-slider .grabbable-inner,
+  .seventv-ban-slider .ban-background,
+  .seventv-ban-slider .unban-background,
 
   /* Synthesized text-pill badges (gs-badge family) — these REPLACE the
      original image badges next to usernames and must stay visible. */

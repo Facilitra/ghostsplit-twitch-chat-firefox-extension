@@ -24,6 +24,9 @@
     "manifest-v3"
   ],
   "scripts": {
+    "sync-check": "node ../sync-content.mjs --check",
+    "sync": "node ../sync-content.mjs",
+    "prelint": "node ../sync-content.mjs --check || (echo 'content drift detected — run `npm run sync` in either repo' && exit 1)",
     "lint": "npx --yes web-ext lint --source-dir . --ignore-files \"dist\" \"dist/**\" \".github\" \".github/**\" package.json README.md CHANGELOG.md LICENSE .gitignore",
     "build": "npx --yes web-ext build --source-dir . --artifacts-dir ./dist --overwrite-dest --ignore-files \"dist\" \"dist/**\" \".github\" \".github/**\" package.json README.md CHANGELOG.md LICENSE .gitignore",
     "icons": "node ../generate-icons.mjs ./icons"

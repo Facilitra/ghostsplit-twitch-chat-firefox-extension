@@ -56,6 +56,13 @@
 (() => {
   "use strict";
 
+  // Pills longer than this many characters are visually truncated; the full
+  // label still exists in the DOM via the `title` attribute (which already
+  // carries Twitch's original localized alt text — "Fundador", "Suscripción
+  // durante 9 meses", etc.), so hovering reveals the real value. A row with
+  // VIP / FOUNDER / TURBO is otherwise wider than the username itself.
+  const BADGE_LABEL_MAX = 3;
+
   // ---- 1. alt → pill mapping ------------------------------------------------
   // Order matters: more specific matches first. Each entry has Spanish AND
   // English patterns since Twitch localizes alt text per user locale.
@@ -86,8 +93,12 @@
     // turbo
     { match: /^turbo$/i, cls: "gs-badge-turbo", label: "TURBO" },
 
-    // prime / premium gaming
-    { match: /^(prime|prime gaming|premium)$/i, cls: "gs-badge-premium", label: "PRIME" },
+    // prime / premium gaming — labeled "PRM" rather than the truncation
+    // default "PRI" (which would be misread as a partial word). PRM is
+    // the conventional consonants-only abbreviation. At 3 chars it sits
+    // under BADGE_LABEL_MAX, so no truncation marker is added; the
+    // browser tooltip still shows the original Twitch alt on hover.
+    { match: /^(prime|prime gaming|premium)$/i, cls: "gs-badge-premium", label: "PRM" },
 
     // cheer / bits — alt: "cheer 100", "cheer 1000", "cheer 5000", etc.
     { match: /^cheer\s*\d+/i, cls: "gs-badge-bits", label: "BITS" },
@@ -132,10 +143,18 @@
 
     const pill = document.createElement("span");
     pill.className = `gs-badge ${match.cls}`;
-    pill.textContent = match.label;
-    pill.title = text; // hover keeps the original alt for context
+    const truncated = match.label.length > BADGE_LABEL_MAX;
+    pill.textContent = truncated
+      ? match.label.slice(0, BADGE_LABEL_MAX)
+      : match.label;
+    // Hover always reveals Twitch's original localized alt for context
+    // ("Fundador" / "Suscripción durante 9 meses"), regardless of whether we
+    // truncated. `data-gs-truncated` is the CSS hook for the `cursor: help`
+    // affordance applied only on shortened pills.
+    pill.title = text;
     pill.setAttribute("aria-label", text);
     pill.dataset.gsBadge = match.label;
+    if (truncated) pill.dataset.gsTruncated = "1";
     return pill;
   }
 
@@ -380,12 +399,10 @@
 
     const rewardLeft = document.createElement("div");
     rewardLeft.className = "gs-redeem-left";
-    if (prefixText) {
-      // Trailing space so "Canjeado: " sits visually apart from the
-      // chip. The 7TV original is " redeemed " with whitespace either
-      // side — we mirror that.
-      rewardLeft.appendChild(document.createTextNode(prefixText + " "));
-    }
+    // `prefixText` (the "Canjeado:" / "Redeemed" verb) is intentionally
+    // dropped — the redeem card chrome already signals "this is a
+    // redemption" via its border + accent palette, so the verb is
+    // redundant noise. Only the name chip + cost remain.
     if (nameText) {
       const nameSpan = document.createElement("span");
       nameSpan.className = "gs-redeem-name";
@@ -419,37 +436,113 @@
       cardWrapper.classList.add("gs-redeem-card");
     }
 
-    // Tag the user-message section (the direct child of the
-    // user-notice-line that contains the actual chat-line__message) so
-    // CSS can reset its row chrome.
+    // Tag the user-message section (the wrapper that contains the
+    // actual chat-line__message). In current Twitch builds the message
+    // can land in either of two places:
+    //   (a) as a descendant of one of `wrapper`'s direct children
+    //       (older layout — what processRow's original walk assumed), or
+    //   (b) as a sibling of `wrapper` under their common parent
+    //       (newer layout — confirmed in chat-example-06 / 08 / 11).
+    // Try (a) first; if no child contains a chat-line__message, fall
+    // back to (b) and tag the sibling.
+    let tagged = false;
     for (const child of Array.from(wrapper.children)) {
       if (child.querySelector(":scope .chat-line__message")) {
         child.classList.add("gs-redeem-message");
+        tagged = true;
         break;
+      }
+    }
+    if (!tagged && cardWrapper) {
+      for (const sib of Array.from(cardWrapper.children)) {
+        if (sib === wrapper) continue;
+        if (
+          sib.matches?.(".chat-line__message") ||
+          sib.querySelector?.(".chat-line__message")
+        ) {
+          sib.classList.add("gs-redeem-message");
+          break;
+        }
       }
     }
   }
 
   /**
-   * Star SVG for the GhostSplit-style sub notice. The original
-   * GhostSplit chat client loads /assets/icons/star.svg, but a content
-   * script can't fetch site-relative assets without a
-   * web_accessible_resources declaration, so we inline the path. Class
-   * is added on the imported element rather than via the source string
-   * to keep DOMParser as the only entry point (no innerHTML).
+   * Inline-SVG icon set for notice cards. One per `data-gs-notice-kind`.
+   * Content scripts can't fetch site-relative assets without a
+   * web_accessible_resources declaration, so we inline the paths and
+   * import them with DOMParser (no innerHTML).
+   *
+   * Glyphs match the GhostSplit chat-client originals where possible:
+   *   sub / gift → star (resub, gift, prime-resub all share)
+   *   raid       → megaphone (matches Twitch's announcement glyph; raids
+   *                are still "shouts to a chat" semantically)
+   *   milestone  → flame (watch-streak / viewer-milestone)
+   *   bits       → lightning (cheer notices, when they land here)
+   *   announce   → speaker (broadcaster announcement — when it lands in
+   *                user-notice-line; the .announcement-line path uses
+   *                Twitch's own icon, untouched)
+   *   ratelimit  → exclamation triangle
    */
-  const STAR_SVG = `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
-         aria-hidden="true" focusable="false">
-      <path d="M12 2 L14.85 8.6 L22 9.3 L16.5 14 L18.1 21 L12 17.3 L5.9 21 L7.5 14 L2 9.3 L9.15 8.6 Z"/>
-    </svg>
-  `;
+  /** @type {Record<string, string>} */
+  const NOTICE_ICONS = {
+    sub: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 L14.85 8.6 L22 9.3 L16.5 14 L18.1 21 L12 17.3 L5.9 21 L7.5 14 L2 9.3 L9.15 8.6 Z"/></svg>`,
+    gift: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 7h-3.2a3 3 0 0 0-4.8-3 3 3 0 0 0-4.8 3H4v6h1v9h14v-9h1V7zm-7-2a1 1 0 1 1 1 1h-1V5zm-3 1h-1a1 1 0 1 1 1-1v1zm9 14h-5v-7h5v7zm-7 0H7v-7h5v7zm7-9H6V9h13v2z"/></svg>`,
+    raid: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 14l7 4V2l-7 4H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v4h2v-4h3zm5-8.27v12.54L11.46 16H4V8h7.46L16 5.73z"/></svg>`,
+    milestone: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 2.05c0 3.95 2 5.13 2 8.45 0 1.83-1 3.5-3 3.5s-3-1.67-3-3.5C9 8 6 7 6 11.5c0 5 4 9.5 7 9.5s7-3 7-9c0-7-7-9.95-7-9.95z"/></svg>`,
+    bits: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 2L4.5 14h7l-1 8L19 10h-7l1-8z"/></svg>`,
+    announce: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 14l7 4V2l-7 4H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h2v4h2v-4h3z"/></svg>`,
+    ratelimit: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 2 1 21h22L12 2zm0 4.83 7.53 12.67H4.47L12 6.83zM11 10h2v5h-2v-5zm0 6h2v2h-2v-2z"/></svg>`,
+  };
 
   /**
+   * Classify the textContent of a user-notice-line wrapper into one of
+   * the supported notice kinds. Returns null if no keyword matches —
+   * caller should leave the row alone (it'll fall through to generic
+   * row styling).
+   *
+   * Order matters: more specific patterns first. E.g. "continuing the
+   * gift" must match before "gifted" lest a continued-gift be misread
+   * as a single gift.
+   *
+   * Locale: both Spanish (Twitch ES) and English (Twitch EN) keywords
+   * are covered for every kind. Adding a third locale means adding the
+   * localized keyword to each kind's regex, not adding a kind.
+   *
+   * @param {string} text
+   * @returns {"sub"|"gift"|"raid"|"milestone"|"bits"|"announce"|"ratelimit"|null}
+   */
+  function classifyNoticeText(text) {
+    if (!text) return null;
+    // continued / chained gift — must come before plain gift
+    if (/\b(continued the gift|continúa el regalo|continuó el regalo)\b/i.test(text)) return "gift";
+    // gift (single or community)
+    if (/\b(gifted|regalad)/i.test(text)) return "gift";
+    // raid / incursión
+    if (/\b(raid(ing|ers|)?|incurs(ion|ión)|incursionar)\b/i.test(text)) return "raid";
+    // watch-streak / viewer milestone
+    if (/\b(watch streak|streak achievement|racha de visualizaciones|racha de \d+|streams seguidos)\b/i.test(text)) return "milestone";
+    // big cheers as system notice (not the badge — the cheer-effect row)
+    if (/\b(cheered|porras de bits|ha enviado \d+ bits)\b/i.test(text)) return "bits";
+    // broadcaster announcement — when it lands here instead of
+    // .announcement-line (some channels / older builds)
+    if (/\b(announcement|anuncio del difusor)\b/i.test(text)) return "announce";
+    // rate-limit / slow-mode notice
+    if (/\b(slow mode|modo lento|mensajes demasiado rápido|enviando mensajes demasiado)\b/i.test(text)) return "ratelimit";
+    // sub / resub (must be LAST — keyword "subscrib" is the most generic)
+    if (/\b(subscrib|suscrit|suscripci)/i.test(text)) return "sub";
+    return null;
+  }
+
+  /**
+   * Build an inline SVG node for the given notice kind. Falls back to
+   * the sub-kind star if the kind is unknown.
+   * @param {string} kind
    * @returns {SVGElement | null}
    */
-  function buildStarIcon() {
-    const svgDoc = new DOMParser().parseFromString(STAR_SVG, "image/svg+xml");
+  function buildNoticeIcon(kind) {
+    const src = NOTICE_ICONS[kind] || NOTICE_ICONS.sub;
+    const svgDoc = new DOMParser().parseFromString(src, "image/svg+xml");
     const svg = svgDoc.documentElement;
     if (!svg || svg.nodeName.toLowerCase() !== "svg") return null;
     const imported = /** @type {SVGElement} */ (document.importNode(svg, true));
@@ -458,55 +551,90 @@
   }
 
   /**
-   * Native sub / resub / Prime / gift notices land inside a
-   * user-notice-line wrapper with a chunky multi-element layout
-   * (icon column + paragraph with chatter-name + emphasized spans +
-   * Prime link). The original GhostSplit chat client renders the
-   * equivalent as a flat single-line notice:
+   * Native sub / resub / Prime / gift / raid / milestone / bits /
+   * announce / ratelimit notices all land inside a user-notice-line
+   * wrapper with a chunky multi-element layout (icon column + paragraph
+   * with chatter-name + emphasized spans + optional inline link). The
+   * original GhostSplit chat client renders all of them as flat
+   * single-line notices on a kind-specific palette:
    *
-   *   <div class="chat-message notice chat-message-system chat-message-system-sub">
+   *   <div class="chat-message notice chat-message-system chat-message-system-{kind}">
    *     <span class="chat-notice-wrap">
-   *       <img class="chat-notice-icon" src=".../star.svg" />
+   *       <img class="chat-notice-icon" src=".../{kind}.svg" />
    *       <span class="chat-notice-text">{flattened text}</span>
    *     </span>
    *   </div>
    *
-   * That's what this function builds — a star icon plus the
-   * paragraph's textContent, on one line, in the blue notice card.
-   * We use `gs-notice-*` class names instead of GhostSplit's
-   * `chat-notice-*` to avoid colliding with anything Twitch ships.
+   * That's what this function builds. The kind is classified by the
+   * paragraph's textContent (see classifyNoticeText) and written onto
+   * the outer wrapper as `data-gs-notice-kind` — CSS reads that
+   * attribute to switch palette per kind. We use `gs-notice-*` class
+   * names instead of GhostSplit's `chat-notice-*` to avoid colliding
+   * with anything Twitch ships.
    *
    * Detection: inside a user-notice-line, NOT a channel-points redeem
    * (no .channel-points-reward-line__icon), and the text content
-   * matches a sub/gift keyword in either Spanish or English.
+   * matches one of the kinds in classifyNoticeText().
+   *
+   * Idempotent via `data-gs-notice="1"` on the wrapper.
    *
    * @param {Element} row
    */
-  function processNativeSubNotice(row) {
+  function processNativeNotice(row) {
     const wrapper = row.closest('[data-test-selector="user-notice-line"]');
     if (!wrapper) return;
-    if (wrapper.dataset.gsSubNotice === "1") return;
+    const w = /** @type {HTMLElement} */ (wrapper);
+    if (w.dataset.gsNotice === "1") return;
     if (wrapper.querySelector(".channel-points-reward-line__icon")) return;
 
     const text = wrapper.textContent || "";
-    if (!/\b(subscrib|suscrit|suscripci|gifted|regalad)/i.test(text)) return;
+    const kind = classifyNoticeText(text);
+    if (!kind) return;
 
-    wrapper.dataset.gsSubNotice = "1";
+    w.dataset.gsNotice = "1";
+    w.dataset.gsNoticeKind = kind;
 
-    const paragraph = wrapper.querySelector("p");
-    if (!paragraph) return;
-
-    // Flatten the paragraph's mixed content (chatter-name span +
-    // emphasized spans + Prime link + text nodes) into a single
-    // whitespace-collapsed string. That's what the GhostSplit notice
-    // shows.
-    const noticeText = (paragraph.textContent || "").trim().replace(/\s+/g, " ");
+    // Pick the LAST `<p>` in the wrapper as the notice text source —
+    // but EXCLUDE paragraphs that live inside an embedded user message.
+    //
+    // First-paragraph (the original approach) breaks watch-streak rows
+    // because they ship multiple paragraphs in the header column:
+    //   <p>+</p>                 ← points reward indicator
+    //   <p>450</p>               ← points reward amount
+    //   <p>¡Racha …! ¡X ha logrado …!</p>   ← the actual achievement
+    // The first <p> renders the notice as just "+".
+    //
+    // wrapper.textContent (the previous "flatten everything" approach)
+    // ALSO breaks because (a) it concatenates with no separators so the
+    // chatter-name span fuses with the reward number ("RioterBlack+450"),
+    // and (b) it sweeps in the embedded user-typed message that ships
+    // alongside the streak (in a `.fsLBGq > .chat-line--inline.chat-line__message`
+    // sibling), producing tails like "…streams! SUB <user>: <typed message>".
+    //
+    // Last-paragraph dodges those issues, BUT a resub or watch-streak
+    // can ship an embedded message that IS a reply — replies carry
+    // their OWN `<p title="…">Respuesta a @x: original message</p>`
+    // inside the chat-line__message, which would become the last <p>
+    // in the wrapper and we'd quote the reply preview instead of the
+    // notice text. Filter those out by walking up from each candidate
+    // and dropping anything that sits inside an embedded message
+    // subtree (`.chat-line__message`, `.fsLBGq`,
+    // `[data-a-target=chat-resubscription-message__custom-message]`).
+    const paragraphs = Array.from(wrapper.querySelectorAll("p")).filter(
+      (p) =>
+        !p.closest(
+          ".chat-line__message, .fsLBGq, [data-a-target='chat-resubscription-message__custom-message']"
+        )
+    );
+    const lastP = paragraphs[paragraphs.length - 1];
+    if (!lastP) return;
+    const noticeText = (lastP.textContent || "").trim().replace(/\s+/g, " ");
     if (!noticeText) return;
 
     const wrap = document.createElement("span");
     wrap.className = "gs-notice-wrap";
 
-    const icon = buildStarIcon();
+    const icon = buildNoticeIcon(kind);
     if (icon) wrap.appendChild(icon);
 
     const textSpan = document.createElement("span");
@@ -518,11 +646,16 @@
     while (wrapper.firstChild) wrapper.removeChild(wrapper.firstChild);
     wrapper.appendChild(wrap);
 
-    // Tag the outer wrapper so the notice-card CSS picks it up. We
-    // also add `gs-notice-card-sub` for sub-specific palette overrides.
+    // Tag the outer wrapper so the notice-card CSS picks it up. The
+    // `gs-notice-card-sub` legacy class stays only for the `sub` kind
+    // so any external selectors targeting it keep working; the modern
+    // path is the `[data-gs-notice-kind]` attribute on the same node.
     const cardWrapper = wrapper.parentElement;
     if (cardWrapper) {
-      cardWrapper.classList.add("gs-notice-card", "gs-notice-card-sub");
+      const cw = /** @type {HTMLElement} */ (cardWrapper);
+      cw.classList.add("gs-notice-card");
+      cw.dataset.gsNoticeKind = kind;
+      if (kind === "sub") cw.classList.add("gs-notice-card-sub");
     }
   }
 
@@ -538,8 +671,158 @@
       .querySelectorAll('[data-test-selector="user-notice-line"]')
       .forEach((wrapper) => {
         processNativeRedeem(wrapper);
-        processNativeSubNotice(wrapper);
+        processNativeNotice(wrapper);
       });
+  }
+
+  /**
+   * Stamp shared `gs-row-*` classes on the structural parts of a chat
+   * row so a single CSS selector set can style both vanilla Twitch
+   * (`.chat-line__message …`) and 7TV (`.seventv-message …`) without
+   * paired rules. The native selectors stay as fallbacks in the CSS
+   * (they catch the frame between `document_start` CSS injection and
+   * `document_idle` JS boot), but every new rule should target
+   * `.gs-row-*`.
+   *
+   * Mapping (vanilla → 7TV → shared class):
+   *   .chat-line__message                  | .seventv-message
+   *     ↳ gs-row
+   *   .chat-line__message-container        | .seventv-chat-message-background
+   *     ↳ gs-row-frame
+   *   .chat-line__timestamp                | .seventv-chat-message-timestamp
+   *     ↳ gs-row-time
+   *   .chat-line__username-container       | .seventv-chat-user
+   *     ↳ gs-row-user
+   *   (badge list <span>)                  | .seventv-chat-user-badge-list
+   *     ↳ gs-row-badges
+   *   .chat-author__display-name           | .seventv-chat-user-username (inner)
+   *     ↳ gs-row-name
+   *   [data-a-target=chat-line-message-body] | .seventv-chat-message-body
+   *     ↳ gs-row-body
+   *   .text-fragment                       | .text-token
+   *     ↳ gs-row-text
+   *   .mention-fragment                    | .mention-token
+   *     ↳ gs-row-mention
+   *   [data-a-target=emote-name]           | .seventv-emote-box
+   *     ↳ gs-row-emote (+ gs-row-emote-big if ratio≥3)
+   *   a.link-fragment                      | a.link-part
+   *     ↳ gs-row-link
+   *
+   * Idempotent — every classList.add is a no-op if already present.
+   * Selectors prefer stable Twitch data-attributes and 7TV semantic
+   * classes; we never rely on Twitch's hashed `Layout-sc-*` /
+   * `AoXTY` / `dtoOxd` classes (they rotate per build).
+   *
+   * @param {Element} row
+   */
+  function tagRowParts(row) {
+    const isSeventv = row.matches(".seventv-message");
+    row.classList.add("gs-row");
+
+    // Frame — the inner wrapper we style as the visible card
+    const frame = isSeventv
+      ? row.querySelector(".seventv-chat-message-background")
+      : row.querySelector(".chat-line__message-container");
+    frame?.classList.add("gs-row-frame");
+
+    // Timestamp
+    const time = isSeventv
+      ? row.querySelector(".seventv-chat-message-timestamp")
+      : row.querySelector('[data-a-target="chat-timestamp"]');
+    time?.classList.add("gs-row-time");
+
+    // Username container (the colored block with badges + name)
+    const userBlock = isSeventv
+      ? row.querySelector(".seventv-chat-user")
+      : row.querySelector(".chat-line__username-container");
+    userBlock?.classList.add("gs-row-user");
+
+    // Badge list parent
+    if (isSeventv) {
+      row.querySelector(".seventv-chat-user-badge-list")?.classList.add("gs-row-badges");
+    } else {
+      // Vanilla: badges live in the first <span> inside the username
+      // container — the one that holds the badge wrapper <div>s.
+      const badgeListSpan = userBlock?.querySelector(":scope > span:not(.chat-line__username)");
+      badgeListSpan?.classList.add("gs-row-badges");
+    }
+
+    // Display name leaf
+    const name = isSeventv
+      ? row.querySelector(".seventv-chat-user-username")
+      : row.querySelector('[data-a-target="chat-message-username"]');
+    name?.classList.add("gs-row-name");
+
+    // Body
+    const body = isSeventv
+      ? row.querySelector(".seventv-chat-message-body")
+      : row.querySelector('[data-a-target="chat-line-message-body"]');
+    body?.classList.add("gs-row-body");
+
+    // Body tokens — text / mention / link / emote
+    if (body) {
+      body.querySelectorAll(isSeventv ? ".text-token" : ".text-fragment")
+        .forEach((el) => el.classList.add("gs-row-text"));
+      body.querySelectorAll(isSeventv ? ".mention-token" : ".mention-fragment")
+        .forEach((el) => el.classList.add("gs-row-mention"));
+      body.querySelectorAll(isSeventv ? "a.link-part" : "a.link-fragment")
+        .forEach((el) => el.classList.add("gs-row-link"));
+      if (isSeventv) {
+        body.querySelectorAll(".seventv-emote-box").forEach((el) => {
+          el.classList.add("gs-row-emote");
+          const r = el.getAttribute("ratio");
+          if (r === "3" || r === "4") el.classList.add("gs-row-emote-big");
+        });
+      } else {
+        body.querySelectorAll('[data-a-target="emote-name"]')
+          .forEach((el) => el.classList.add("gs-row-emote"));
+      }
+    }
+  }
+
+  /**
+   * Both renderers truncate the inline reply-quote preview to a single
+   * line via `text-overflow: ellipsis` (twitch-chat.css), so when the
+   * original message is long the visible text gets cut off mid-string.
+   * We've also given the preview a `cursor: help` affordance to signal
+   * a tooltip is available — but the tooltips Twitch / 7TV ship are
+   * either missing (7TV's `.seventv-reply-message-part` has no `title`)
+   * or partial (vanilla's `<p title="…">` carries only the original
+   * quoted message, NOT the `"Respuesta a @user: "` prefix). So we
+   * promote the full visible text of the preview into the `title`
+   * attribute on the element the user actually hovers, on both
+   * renderers, idempotently.
+   *
+   * @param {Element} row
+   */
+  function tagReplyPreviewTooltip(row) {
+    // 7TV: a single text-bearing div, no title by default.
+    const seventvPart = row.querySelector(".seventv-reply-message-part");
+    if (seventvPart instanceof HTMLElement && !seventvPart.dataset.gsReplyTip) {
+      const full = (seventvPart.textContent || "").trim().replace(/\s+/g, " ");
+      if (full) {
+        seventvPart.title = full;
+        seventvPart.dataset.gsReplyTip = "1";
+      }
+    }
+    // Vanilla: gate on the row's aria-label since the inner `.iWlGez`
+    // class is a CSS-in-JS hash. The reply-preview <p> lives at
+    // `.chat-line__message-container > div:first-child p` for reply
+    // rows. Replace its existing title (only the original message)
+    // with the full inline text so the prefix + @user are included.
+    const ariaLabel = row.getAttribute("aria-label") || "";
+    if (/^(reply to|respuesta a)\b/i.test(ariaLabel)) {
+      const previewP = row.querySelector(
+        '.chat-line__message-container > div:first-child p'
+      );
+      if (previewP instanceof HTMLElement && !previewP.dataset.gsReplyTip) {
+        const full = (previewP.textContent || "").trim().replace(/\s+/g, " ");
+        if (full) {
+          previewP.title = full;
+          previewP.dataset.gsReplyTip = "1";
+        }
+      }
+    }
   }
 
   /**
@@ -550,6 +833,10 @@
   function processRow(row) {
     if (row.dataset.gsPills === "1") return;
     row.dataset.gsPills = "1";
+
+    // Tag the structural parts with shared `gs-row-*` classes so CSS
+    // can target one selector set for both vanilla and 7TV DOMs.
+    tagRowParts(row);
 
     // Badges
     const badges = row.querySelectorAll(
@@ -566,6 +853,11 @@
     // Native channel-points redeem header — wrap reward name + cost so
     // the chip CSS can target them.
     processNativeRedeem(row);
+
+    // Reply-quote tooltip — promote the full visible text into `title`
+    // so the `cursor: help` affordance actually reveals the missing
+    // tail when the ellipsis truncates the preview.
+    tagReplyPreviewTooltip(row);
   }
 
   /**
