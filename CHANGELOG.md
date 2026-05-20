@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.2] — 2026-05-21
+
+### Fixed
+- **CI release workflow failed at `prelint`** because the hook called
+  `node ../sync-content.mjs --check` and the script lives at the
+  parent folder, which doesn't exist on a single-repo CI checkout. The
+  script itself was already tolerant (it exits 0 when the sibling
+  repo can't be seen), but Node failed earlier with `MODULE_NOT_FOUND`
+  before the script's own guard could run. Rewrote `prelint` as a
+  `node -e` one-liner that `accessSync`s the parent script first and
+  exits 0 if it isn't there. Local drift detection still works exactly
+  as before; CI now skips the check silently. v0.3.1 contained the
+  7TV pill fix from 0.3.1 but couldn't publish — 0.3.2 is the
+  republication.
+
 ## [0.3.1] — 2026-05-21
 
 ### Fixed
