@@ -869,6 +869,17 @@
   border: none !important;
 }
 
+/* 7TV's "native message style" mode wraps Twitch's native chat lines and
+   re-adds 2rem of horizontal padding on the inner
+   `[data-a-target="chat-line-message"]`. Our row chrome already supplies the
+   gutter via `--gs-row-pad-x`, so that 2rem produces a double inset. Strip it
+   (the `:not(.chat-line--inline)` mirrors 7TV's own selector so embedded
+   inline rows — announcements, redeems — keep their flat layout). */
+.chat-shell .seventv-chat-message-style-native [data-a-target="chat-line-message"]:not(.chat-line--inline) {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
 /* User row: badges + username inline-flex, never wraps. `baseline`
    alignment keeps the username text on the same line as the colon and
    message body, even when a badge is taller than the text. */
@@ -1129,32 +1140,36 @@
   display: inline;
 }
 
-/* 7TV puts the chatter-name at the front of the reward header — hide
-   it because the user's actual chat message already names them below.
-   Our native synthesis doesn't include the username, so no equivalent
-   rule is needed for .gs-redeem-*. */
+/* 7TV ships the reward header as:
+     <span class="reward-username">USER</span> redeemed <span class="reward-name">NAME</span>
+   We hide BOTH the username span AND the " redeemed " text node so
+   only the reward-name chip remains, matching the vanilla path where
+   `processNativeRedeem` already drops the "Canjeado:" verb. CSS can't
+   target text nodes directly, so we set `font-size: 0` on the parent
+   (collapses any text node to zero width) and restore the chip's own
+   size via an absolute-unit font-size on `.reward-name` below so it
+   doesn't compound against the zero parent. The vanilla synthesized
+   structure has no equivalent text nodes to hide; this rule is a
+   no-op for `.gs-redeem-left`. */
+.chat-shell .seventv-reward-message-container .reward-left {
+  font-size: 0;
+}
 .chat-shell .seventv-reward-message-container .reward-username {
   display: none !important;
 }
 
-/* Capitalize the first visible letter of the 7TV header — after the
-   username is hidden, the next visible word is lowercase "redeemed",
-   which reads better as "Redeemed". The native variant ships
-   "Canjeado: " already capitalized, so it skips this rule. */
-.chat-shell .seventv-reward-message-container .reward-part::first-letter {
-  text-transform: uppercase;
-}
-
-/* Reward NAME chip — same chip on both renderers. The previous
+/* Reward NAME chip — same chip on both renderers. Sized in absolute
+   token units (`var(--gs-text-sm)` = 12 px) rather than `0.85em` so
+   the chip's font-size doesn't collapse to 0 inside the 7TV
+   `.reward-left { font-size: 0 }` parent above. The previous
    `vertical-align: middle` was pushing the chip up against the
    surrounding row text (which sits on the baseline) and producing a
-   visible offset between "Canjeado:" and the chip; sitting on the
-   baseline like the rest of the inline content reads as one line. */
+   visible offset; sitting on the baseline reads as one line. */
 .chat-shell .reward-name,
 .chat-shell .gs-redeem-name {
   display: inline-block;
   font-weight: 700;
-  font-size: 0.85em;
+  font-size: var(--gs-text-sm);
   padding: 1px 8px;
   border-radius: var(--gs-radius-sm);
   background: rgba(255, 90, 90, 0.22);

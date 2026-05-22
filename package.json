@@ -1,6 +1,6 @@
 {
   "name": "ghostsplit-twitch-chat-firefox-extension",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Firefox extension that restyles native twitch.tv chat to match the GhostSplit chat look. Replaces image badges with text pills (SUB/MOD/VIP/etc.), softens username colors, and works alongside 7TV / BetterTTV / FrankerFaceZ.",
   "private": true,
   "license": "MIT",
