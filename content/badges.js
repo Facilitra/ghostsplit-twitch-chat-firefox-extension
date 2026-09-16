@@ -362,33 +362,50 @@
     const iconHolder = wrapper.querySelector(".channel-points-reward-line__icon");
     if (!iconHolder) return;
 
+    // Already rebuilt: the icon now lives inside our .gs-redeem-cost, whose
+    // parent chain carries the marker. Without this guard a later
+    // processRow() on the embedded message re-runs the rebuild against
+    // .gs-redeem-cost and duplicates / wipes the cost.
+    if (iconHolder.closest('[data-gs-redeem="1"]')) return;
     const headerLine = /** @type {HTMLElement} */ (iconHolder.parentElement);
     if (!headerLine || headerLine.dataset.gsRedeem === "1") return;
     headerLine.dataset.gsRedeem = "1";
 
-    // Read the [pre-text, icon, post-text] tuple from the header line.
-    /** @type {Text | null} */ let preTextNode = null;
-    /** @type {Text | null} */ let postTextNode = null;
+    // Read [pre-text, icon, post-text] from the header line. React can
+    // split the pre-text into several adjacent text nodes (e.g. the
+    // redeemer name and "ha canjeado <reward>"), so concatenate ALL text
+    // before the icon instead of keeping only the last node — keeping
+    // the last node is what dropped the username on no-message redeems.
+    let preRaw = "";
+    let costRaw = "";
     let seenIcon = false;
     for (const node of Array.from(headerLine.childNodes)) {
       if (node === iconHolder) {
         seenIcon = true;
         continue;
       }
-      if (node.nodeType !== Node.TEXT_NODE) continue;
-      if (!seenIcon) preTextNode = /** @type {Text} */ (node);
-      else postTextNode = /** @type {Text} */ (node);
+      const t = node.nodeType === Node.TEXT_NODE ? node.nodeValue || "" : node.textContent || "";
+      if (!seenIcon) preRaw += t;
+      else costRaw += t;
     }
+    const raw = preRaw.replace(/\s+/g, " ").trim();
+    const costText = costRaw.replace(/\s+/g, " ").trim();
 
-    // Split the leading prefix at the first ":" (Spanish: "Canjeado:
-    // <name>") or at the first space (English: "Redeemed <name>"). The
-    // prefix becomes inline body text, the name becomes the chip.
-    const raw = (preTextNode?.nodeValue || "").trim();
-    const colonIdx = raw.indexOf(":");
-    const splitAt = colonIdx >= 0 ? colonIdx + 1 : raw.indexOf(" ");
-    const prefixText = splitAt > 0 ? raw.slice(0, splitAt) : raw;
-    const nameText = splitAt > 0 ? raw.slice(splitAt).trim() : "";
-    const costText = (postTextNode?.nodeValue || "").trim();
+    // Two header shapes:
+    //   no message  → "<user> ha canjeado <reward>" / "<user> redeemed <reward>"
+    //   with message→ "Canjeado: <reward>" / "Redeemed <reward>" (user is
+    //                  shown in the embedded chat line below)
+    let userText = "";
+    let nameText = "";
+    const withUser = raw.match(/^(.+?)\s+(?:ha canjeado|redeemed)\s+(.+)$/i);
+    if (withUser) {
+      userText = withUser[1];
+      nameText = withUser[2];
+    } else {
+      const colonIdx = raw.indexOf(":");
+      const splitAt = colonIdx >= 0 ? colonIdx + 1 : raw.indexOf(" ");
+      nameText = splitAt > 0 ? raw.slice(splitAt).trim() : raw;
+    }
 
     // Build the redeem-part subtree using OUR namespace (`gs-*`). The
     // CSS pairs these selectors with the equivalent 7TV ones so a
@@ -403,6 +420,12 @@
     // dropped — the redeem card chrome already signals "this is a
     // redemption" via its border + accent palette, so the verb is
     // redundant noise. Only the name chip + cost remain.
+    if (userText) {
+      const userSpan = document.createElement("span");
+      userSpan.className = "gs-redeem-user";
+      userSpan.textContent = userText;
+      rewardLeft.appendChild(userSpan);
+    }
     if (nameText) {
       const nameSpan = document.createElement("span");
       nameSpan.className = "gs-redeem-name";

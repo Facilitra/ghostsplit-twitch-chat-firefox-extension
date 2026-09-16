@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.7] — 2026-09-16
+
+### Fixed
+- **Channel points redeems without a message lost the redeemer's name**:
+  React can split the header text into several text nodes and only the last
+  one was read. The header is now parsed as a whole ("<user> ha canjeado
+  <reward>" / "<user> redeemed <reward>") and the username is shown before
+  the reward chip.
+- **Redeem cost dropped to its own line**: name, reward chip and cost now
+  share one wrapping flex line.
+- **Redeem cost could be duplicated or wiped** when the embedded message row
+  re-ran the rebuild against the already-rebuilt cost block.
+
 ## [0.3.6] — 2026-09-16
 
 ### Fixed

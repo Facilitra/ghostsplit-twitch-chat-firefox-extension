@@ -3065,3 +3065,27 @@ html .chat-shell .gs-notice-card .gs-notice-message.gs-row.chat-line--inline.cha
   margin-right: 4px;
   opacity: 0.8;
 }
+
+/* Redeem header for message-less redeems: "<user> <reward chip> <cost>"
+   on one wrapping line (badges.js adds .gs-redeem-user). */
+html .chat-shell .gs-redeem-card .gs-redeem-part {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-bottom: 0 !important;
+}
+html .chat-shell .gs-redeem-card .gs-redeem-left {
+  display: inline-flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+}
+html .chat-shell .gs-redeem-card:not(:has(.chat-line__message)) .gs-redeem-part {
+  margin-bottom: 0 !important;
+}
+.chat-shell .gs-redeem-user {
+  font-weight: 700;
+  color: var(--gs-text);
+}
