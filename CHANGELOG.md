@@ -4,6 +4,30 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.6] — 2026-09-16
+
+### Fixed
+- **Compatibility with the rewritten 7TV extension**, which now augments
+  Twitch's native chat rows instead of rendering its own chat list.
+- **Resub / Prime / watch-streak messages disappeared**: flattening a notice
+  into the GhostSplit card deleted the user-typed message nested inside it.
+  The message is now kept under the notice with its own inset.
+- **Gift notices**: single gifts were left unstyled (showing Twitch's purple
+  rail) and community gifts showed only the gifter's name. Notice text now
+  falls back to the full header, and "regalando / gifting" is classified as
+  a gift. Twitch's colored rail is hidden for every border color.
+- **Too much side space**: 7TV's native-style 2rem padding came back (its
+  class moved to `<html>`), and Twitch's wrappers added their own insets.
+  Rows now use only the GhostSplit gutter.
+- **Emote / emoji sizing** for 7TV's new inline emotes (inline `height: 32px`
+  and `max-height: none !important` defeated the cap), plus alignment of
+  7TV/FFZ cosmetic badges.
+- **Announcements**: header and message were misaligned; the "Anuncio"
+  label lost its styling after a Twitch class rename.
+- **Replies**: restored left padding before the reply icon.
+- **International display names**: the `(login)` label is now muted and no
+  longer glued to the message text.
+
 ## [0.3.4] — 2026-05-21
 
 ### Fixed

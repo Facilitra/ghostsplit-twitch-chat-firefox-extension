@@ -880,6 +880,38 @@
   padding-right: 0 !important;
 }
 
+/* 7TV rewrite (Sep 2026): `seventv-chat-message-style-native` now sits on
+   <html> (an ANCESTOR of .chat-shell), so the rule above never matches and
+   7TV's 2rem side padding came back. And since 7TV no longer wraps rows,
+   `[data-a-target="chat-line-message"]` IS our `.gs-row` card — restore our
+   own gutter instead of zeroing it. Inline rows embedded in notices stay
+   flat. Twitch's hashed inner wrappers get their inline padding stripped
+   so the card gutter is the only horizontal inset. */
+html.seventv-chat-message-style-native .chat-shell [data-a-target="chat-line-message"]:not(.chat-line--inline),
+.chat-shell .gs-row:not(.seventv-message):not(.chat-line--inline) {
+  padding-left: var(--gs-row-pad-x) !important;
+  padding-right: var(--gs-row-pad-x) !important;
+  padding-inline: var(--gs-row-pad-x) !important;
+}
+html.seventv-chat-message-style-native .chat-shell .chat-line--inline[data-a-target="chat-line-message"],
+.chat-shell .gs-row.chat-line--inline {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-inline: 0 !important;
+}
+.chat-shell .gs-row:not(.seventv-message) .gs-row-frame,
+.chat-shell .gs-row:not(.seventv-message) .gs-row-frame > div,
+.chat-shell .gs-row:not(.seventv-message) .chat-line__no-background,
+.chat-shell .gs-row:not(.seventv-message) .chat-line__no-background > div,
+.chat-shell .gs-row:not(.seventv-message) > div:not(.chat-line__icons) {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-inline: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-inline: 0 !important;
+}
+
 /* User row: badges + username inline-flex, never wraps. `baseline`
    alignment keeps the username text on the same line as the colon and
    message body, even when a badge is taller than the text. */
@@ -967,6 +999,47 @@
   height: auto !important;
   vertical-align: middle;
   object-fit: contain;
+}
+
+/* 7TV rewrite (Sep 2026): 7TV no longer replaces the chat list; it
+   augments Twitch's native rows. Emotes land as
+   `.seventv-emote-anchor > .seventv-emote-container > img.seventv-emote`
+   INSIDE `.text-fragment`, with an inline `height: 32px`; Twitch emotes
+   it overlays carry an inline `max-height: none !important`, which beats
+   any stylesheet max-height. Cap with an explicit height instead (inline
+   height is not !important, so this wins) and let width follow the
+   aspect ratio. Emoji become `img.seventv-emoji` with inline 20×20. */
+.chat-shell img.seventv-emote,
+.chat-shell [data-a-target="chat-line-message-body"] img.chat-line__message--emote {
+  height: var(--gs-emote-max-h) !important;
+  width: auto !important;
+  max-width: none !important;
+  vertical-align: middle;
+}
+.chat-shell img.seventv-emoji {
+  width: calc(var(--gs-emote-max-h) - 4px) !important;
+  height: calc(var(--gs-emote-max-h) - 4px) !important;
+  max-height: none !important;
+  vertical-align: middle;
+}
+.chat-shell .seventv-emote-anchor,
+.chat-shell .seventv-emote-container {
+  display: inline-block;
+  margin: 0 !important;
+  line-height: 0;
+  vertical-align: middle;
+}
+/* 7TV / FFZ cosmetic badges injected next to the username (not mapped
+   to pills — they're per-user cosmetics). Align them with the pills. */
+.chat-shell .seventv-badge-container {
+  margin-right: 4px !important;
+  vertical-align: middle;
+  line-height: 0;
+}
+.chat-shell .seventv-badge-container img.seventv-badge {
+  width: 16px !important;
+  height: 16px !important;
+  vertical-align: middle !important;
 }
 
 /* Unicode emoji rendered as inline SVG by 7TV (`.seventv-emoji`). Must
@@ -1424,6 +1497,23 @@
   word-break: break-word;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* User-typed message kept under a flattened notice (resub / Prime /
+   watch-streak custom message) — re-attached by processNativeNotice. */
+.chat-shell .gs-notice-card .gs-notice-message {
+  display: block !important;
+  margin: 6px 0 0 !important;
+  padding: 6px 8px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: var(--gs-radius-sm);
+  color: var(--gs-text);
+}
+.chat-shell .gs-notice-card .gs-notice-message .chat-line__message {
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
 }
 
 /* Variant: gift-sub notice (Twitch surfaces "gifted" in the text — match by
@@ -2851,3 +2941,127 @@
    - "NEW MESSAGES BELOW" floating button when scroll is parked away from
      bottom (Twitch already has this — verify it survives the restyle).
    ============================================================================ */
+
+/* ---------- Tighter lateral gutters (7TV rewrite, Sep 2026) ----------------
+   With 7TV now augmenting native rows, the space from the chat column edge
+   to the card stacked Twitch's scroll-area padding + per-row wrapper padding
+   + our 4px row margin. Zero the container/wrapper insets so the only side
+   spacing is our row margin (cards) and --gs-row-pad-x (text inside). */
+.chat-shell .chat-scrollable-area__message-container,
+.chat-shell .chat-scrollable-area__message-container > div {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  padding-inline: 0 !important;
+}
+.chat-shell {
+  --gs-row-pad-x: 8px;
+}
+
+/* Reply-quote chip: the lateral-reset above (`.gs-row-frame > div`) also
+   zeroed the chip's left padding, gluing the reply icon to the accent
+   border. Restore breathing room (higher specificity + !important). */
+.chat-shell .gs-row:not(.seventv-message) .gs-row-frame > div:first-child:has(p[title]) {
+  padding-left: 8px !important;
+  padding-inline-start: 8px !important;
+}
+
+/* Announcement card alignment (7TV rewrite, Sep 2026). The embedded
+   message is a plain `.chat-line__message.gs-row` (no `.chat-line--inline`
+   anymore), so the lateral gutter rule above re-padded it, and Twitch's
+   wrapper still ships an inline `margin-inline-start: -8px`. Net result:
+   the message and the "Anuncio" header drifted apart. Flatten both so the
+   header and the message share the card's own padding, like resub cards. */
+html .chat-shell .announcement-line > div[style*="margin-inline-start"],
+html .chat-shell .announcement-line > div:has(> .chat-line__message) {
+  margin: 0 !important;
+  margin-inline: 0 !important;
+  padding: 0 !important;
+}
+html.seventv-chat-message-style-native .chat-shell .announcement-line [data-a-target="chat-line-message"],
+html .chat-shell .announcement-line .gs-row.gs-row {
+  margin: 0 !important;
+  padding: 0 !important;
+  padding-inline: 0 !important;
+  min-height: 0 !important;
+}
+html .chat-shell .announcement-line > div:first-child {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+}
+html .chat-shell .announcement-line > div:first-child > div:empty {
+  display: none !important;
+}
+html .chat-shell .announcement-line > div:first-child .tw-svg {
+  margin: 0 !important;
+}
+/* Header label/icon: Twitch's hashed label class rotated (.eDNrvd → .fJIliO),
+   so anchor on structure instead: icon wrapper + the last header div. */
+html .chat-shell .announcement-line > div:first-child .tw-svg,
+html .chat-shell .announcement-line > div:first-child .tw-svg svg {
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 auto;
+}
+html .chat-shell .announcement-line > div:first-child > div:last-child {
+  font-weight: 700;
+  font-size: var(--gs-text-sm);
+  line-height: 1;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Watch-streak (and any notice) whose user message is rendered OUTSIDE
+   the user-notice-line wrapper — sibling inside the card, so
+   processNativeNotice never re-attaches it as .gs-notice-message. Give it
+   the same breathing room + inset as the resub message. */
+html .chat-shell .gs-notice-card [data-test-selector="user-notice-line"] ~ * .chat-line__message,
+html .chat-shell .gs-notice-card [data-test-selector="user-notice-line"] ~ .chat-line__message,
+html .chat-shell .gs-notice-card .gs-notice-message {
+  display: block !important;
+  margin: 8px 0 0 !important;
+  padding: 6px 8px !important;
+  padding-inline: 8px !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: var(--gs-radius-sm) !important;
+}
+html .chat-shell .gs-notice-card .gs-notice-message .chat-line__message {
+  margin: 0 !important;
+  padding: 0 !important;
+  padding-inline: 0 !important;
+  background: transparent !important;
+}
+/* Beat the html.seventv-chat-message-style-native inline-row reset
+   (0,5,1) so the kept notice message keeps its inset side padding. */
+html.seventv-chat-message-style-native .chat-shell .gs-notice-card .gs-notice-message.chat-line--inline[data-a-target="chat-line-message"],
+html .chat-shell .gs-notice-card .gs-notice-message.gs-row.chat-line--inline.chat-line__message {
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  padding-inline: 8px !important;
+}
+
+/* Twitch's native colored rail next to notices: any `--color-border-*`
+   token (quote for streaks, brand/purple for gifts & subs), not only
+   `--color-border-quote`. Our card already draws its own border-left. */
+.chat-shell *:has(> [data-test-selector="user-notice-line"]) > div[style*="--color-border"] {
+  display: none !important;
+}
+
+/* International display names (CJK, Cyrillic…): Twitch appends the ASCII
+   login as `<span class="chat-author__intl-login"> (login)</span>` right
+   after the display name. With the colon span hidden there's no gap
+   before the message ("(canajohn)jajaja"), and it inherits the raw
+   neon chat color. Make it a muted secondary label with a trailing gap. */
+.chat-shell .gs-row .chat-author__intl-login {
+  color: var(--gs-muted) !important;
+  -webkit-text-fill-color: currentColor;
+  font-weight: 400;
+  font-size: var(--gs-text-sm);
+  margin-left: 2px;
+  margin-right: 4px;
+  opacity: 0.8;
+}

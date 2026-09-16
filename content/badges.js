@@ -517,7 +517,7 @@
     // continued / chained gift — must come before plain gift
     if (/\b(continued the gift|continúa el regalo|continuó el regalo)\b/i.test(text)) return "gift";
     // gift (single or community)
-    if (/\b(gifted|regalad)/i.test(text)) return "gift";
+    if (/\b(gift(ed|ing)|regal(ad|and))/i.test(text)) return "gift";
     // raid / incursión
     if (/\b(raid(ing|ers|)?|incurs(ion|ión)|incursionar)\b/i.test(text)) return "raid";
     // watch-streak / viewer milestone
@@ -620,15 +620,31 @@
     // and dropping anything that sits inside an embedded message
     // subtree (`.chat-line__message`, `.fsLBGq`,
     // `[data-a-target=chat-resubscription-message__custom-message]`).
+    const EMBED_SEL =
+      ".chat-line__message, .fsLBGq, [data-a-target='chat-resubscription-message__custom-message']";
     const paragraphs = Array.from(wrapper.querySelectorAll("p")).filter(
-      (p) =>
-        !p.closest(
-          ".chat-line__message, .fsLBGq, [data-a-target='chat-resubscription-message__custom-message']"
-        )
+      (p) => !p.closest(EMBED_SEL)
     );
-    const lastP = paragraphs[paragraphs.length - 1];
-    if (!lastP) return;
-    const noticeText = (lastP.textContent || "").trim().replace(/\s+/g, " ");
+    // Prefer the last <p> that actually carries the notice wording
+    // (watch-streak / resub). Mystery / community gifts ship the gifter
+    // name ALONE in a <p> (`.mystery-gift-theme__displayname`) with the
+    // "está regalando N subs…" sentence in a sibling <span>, and single
+    // gifts ship no <p> at all (`¡<name> ha regalado una sub a <name>!`
+    // inside a <span>) — so fall back to the whole header text, with a
+    // space injected after block-level nodes so names don't fuse.
+    const matchingP = paragraphs.filter(
+      (p) => classifyNoticeText(p.textContent || "") === kind
+    );
+    let noticeText = "";
+    if (matchingP.length) {
+      noticeText = matchingP[matchingP.length - 1].textContent || "";
+    } else {
+      const clone = /** @type {HTMLElement} */ (wrapper.cloneNode(true));
+      clone.querySelectorAll(EMBED_SEL + ", svg, img, button").forEach((el) => el.remove());
+      clone.querySelectorAll("p, div").forEach((el) => el.after(" "));
+      noticeText = clone.textContent || "";
+    }
+    noticeText = noticeText.trim().replace(/\s+/g, " ");
     if (!noticeText) return;
 
     const wrap = document.createElement("span");
@@ -642,9 +658,32 @@
     textSpan.textContent = noticeText;
     wrap.appendChild(textSpan);
 
+    // Keep the user-typed message that resubs / watch-streaks / Prime
+    // subs can ship alongside the header. It lives INSIDE the
+    // user-notice-line wrapper (`[data-a-target=chat-resubscription-message__custom-message]`
+    // or a hashed `.fsLBGq` > `.chat-line--inline.chat-line__message`),
+    // so clearing the wrapper used to delete it. Since the 7TV rewrite
+    // augments Twitch's native DOM instead of rendering its own sub
+    // container, every resub now takes this path — detach the message
+    // nodes first and re-attach them under the flat notice.
+    /** @type {Element[]} */
+    const embedded = [];
+    wrapper
+      .querySelectorAll(
+        "[data-a-target='chat-resubscription-message__custom-message'], .fsLBGq, .chat-line__message"
+      )
+      .forEach((el) => {
+        if (!embedded.some((kept) => kept.contains(el))) embedded.push(el);
+      });
+
     // Replace the user-notice-line content with our flat notice.
+    embedded.forEach((el) => el.remove());
     while (wrapper.firstChild) wrapper.removeChild(wrapper.firstChild);
     wrapper.appendChild(wrap);
+    embedded.forEach((el) => {
+      el.classList.add("gs-notice-message");
+      wrapper.appendChild(el);
+    });
 
     // Tag the outer wrapper so the notice-card CSS picks it up. The
     // `gs-notice-card-sub` legacy class stays only for the `sub` kind
