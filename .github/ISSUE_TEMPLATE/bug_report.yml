@@ -1,0 +1,85 @@
+name: Bug report
+description: Chat looks wrong, badges missing, icon not showing, etc.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please fill in the environment fields; most chat bugs depend on the browser + 7TV combo.
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Firefox
+        - Firefox Developer Edition / Nightly
+        - Other Gecko-based
+    validations:
+      required: true
+  - type: input
+    id: browser-version
+    attributes:
+      label: Browser version
+      placeholder: e.g. 142.0
+    validations:
+      required: true
+  - type: input
+    id: ext-version
+    attributes:
+      label: Extension version
+      description: Shown on about:addons.
+      placeholder: e.g. 0.3.7
+    validations:
+      required: true
+  - type: dropdown
+    id: chat-addons
+    attributes:
+      label: Other chat extensions installed
+      multiple: true
+      options:
+        - None
+        - 7TV
+        - BetterTTV
+        - FrankerFaceZ
+        - Other (say which below)
+    validations:
+      required: true
+  - type: dropdown
+    id: theme
+    attributes:
+      label: Twitch theme
+      options:
+        - Dark
+        - Light
+    validations:
+      required: true
+  - type: input
+    id: locale
+    attributes:
+      label: Twitch UI language
+      placeholder: e.g. English, Español
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you saw vs. what you expected. A screenshot of the chat row helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open twitch.tv/<channel>
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: console
+    attributes:
+      label: Console errors (optional)
+      description: Open DevTools (F12) → Console, paste anything red mentioning the extension.
+      render: text

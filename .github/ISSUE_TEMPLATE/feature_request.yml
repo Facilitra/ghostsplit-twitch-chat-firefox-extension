@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest a styling change, new badge role, or locale
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What's the problem or gap?
+      description: What in the current chat styling bugs you, or what's missing?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the change. Mockups or screenshots from GhostSplit.gg's own chat are welcome.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This is purely visual / cosmetic (the extension has no background page, popup, or storage by design).
+        - label: I checked it applies to both native Twitch chat and 7TV chat, or noted which one.
