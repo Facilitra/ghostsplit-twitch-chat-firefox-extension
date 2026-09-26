@@ -3046,8 +3046,10 @@ html .chat-shell .gs-notice-card .gs-notice-message.gs-row.chat-line--inline.cha
 
 /* Twitch's native colored rail next to notices: any `--color-border-*`
    token (quote for streaks, brand/purple for gifts & subs), not only
-   `--color-border-quote`. Our card already draws its own border-left. */
-.chat-shell *:has(> [data-test-selector="user-notice-line"]) > div[style*="--color-border"] {
+   `--color-border-quote`. Gift bombs use a literal `background: rgb(…)`
+   instead of a token. Our card already draws its own border-left. */
+.chat-shell *:has(> [data-test-selector="user-notice-line"]) > div[style*="--color-border"],
+.chat-shell *:has(> [data-test-selector="user-notice-line"]) > div[style*="background"]:not([data-test-selector]) {
   display: none !important;
 }
 
